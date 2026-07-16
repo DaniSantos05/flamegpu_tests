@@ -1,0 +1,79 @@
+#ifndef INCLUDE_FLAMEGPU_MODEL_HOSTFUNCTIONDESCRIPTION_H_
+#define INCLUDE_FLAMEGPU_MODEL_HOSTFUNCTIONDESCRIPTION_H_
+
+#include <string>
+#include <memory>
+#include <vector>
+
+#ifdef SWIG
+#include "flamegpu/runtime/HostFunctionCallback.h"
+#endif
+#include "flamegpu/model/DependencyNode.h"
+#include "flamegpu/model/LayerDescription.h"
+
+namespace flamegpu {
+
+/**
+ * Within the model hierarchy, this class represents a host function for a FLAMEGPU model
+ */
+class HostFunctionDescription : public DependencyNode {
+    /**
+     * Constructors
+     */
+
+    /**
+     * Default copy constructor, not implemented
+     */
+    HostFunctionDescription(const HostFunctionDescription &other_function) = delete;
+    /**
+     * Default move constructor, not implemented
+     */
+    HostFunctionDescription(HostFunctionDescription &&other_function) noexcept = delete;
+    /**
+     * Default copy assignment, not implemented
+     */
+    HostFunctionDescription& operator=(const HostFunctionDescription &other_function) = delete;
+    /**
+     * Default move assignment, not implemented
+     */
+    HostFunctionDescription& operator=(HostFunctionDescription &&other_function) noexcept = delete;
+
+ public:
+    HostFunctionDescription(std::string host_function_name, FLAMEGPU_HOST_FUNCTION_POINTER host_function);
+    HostFunctionDescription(std::string host_function_name, HostFunctionCallback *func_callback);
+
+    /**
+     * Equality operator, checks whether HostFunctionDescription hierarchies are functionally the same
+     * @returns True when agent functions are the same
+     * @note Instead compare pointers if you wish to check that they are the same instance
+     */
+    bool operator==(const HostFunctionDescription& rhs) const;
+    /**
+     * Equality operator, checks whether HostFunctionDescription hierarchies are functionally different
+     * @returns True when agent functions are not the same
+     * @note Instead compare pointers if you wish to check that they are not the same instance
+     */
+    bool operator!=(const HostFunctionDescription& rhs) const;
+
+    /**
+     * @return The function pointer for executing the host function if defined via the C/C++ API
+     */
+    FLAMEGPU_HOST_FUNCTION_POINTER getFunctionPtr() const;
+    /**
+     * @return The callback function for executing the host function if defined via the Python API
+     */
+    HostFunctionCallback* getCallbackObject();
+    /**
+     * @return The name of the host function
+     */
+    std::string getName();
+
+ private:
+    FLAMEGPU_HOST_FUNCTION_POINTER function;
+    HostFunctionCallback* callbackObject;
+    std::string name;
+};
+
+}  // namespace flamegpu
+
+#endif  // INCLUDE_FLAMEGPU_MODEL_HOSTFUNCTIONDESCRIPTION_H_

@@ -1,0 +1,8 @@
+{
+    "config": {
+        "random_seed": 12
+    },
+    "exit": {
+        "step_index": 0
+    }
+}
