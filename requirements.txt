@@ -1,0 +1,3 @@
+--extra-index-url https://whl.flamegpu.com/whl/cuda130/
+pyflamegpu==2.0.0rc4+cuda130
+matplotlib>=3.10,<4

@@ -15,41 +15,41 @@ OUTPUT_DIR = Path("graficas_v05")
 
 
 def read_metrics(csv_file):
-    steps = []
-    stopped_cars = []
-    stopped_by_light = []
-    stopped_by_car = []
-    queue_lengths = []
-    crossings_this_step = []
-    total_crossings = []
-    total_waiting_time = []
-    average_waiting_time = []
+    data = {
+        "steps": [],
+        "stopped_cars": [],
+        "stopped_by_light": [],
+        "stopped_by_car": [],
+        "queue_lengths": [],
+        "crossings_this_step": [],
+        "total_crossings": [],
+        "total_waiting_time": [],
+        "average_waiting_time": [],
+    }
 
-    with open(csv_file, mode="r", encoding="utf-8") as file:
+    with csv_file.open(mode="r", encoding="utf-8") as file:
         reader = csv.DictReader(file, delimiter=";")
 
         for row in reader:
-            steps.append(int(row["paso"]))
-            stopped_cars.append(int(row["coches_parados"]))
-            stopped_by_light.append(int(row["parados_por_semaforo"]))
-            stopped_by_car.append(int(row["parados_por_coche_delante"]))
-            queue_lengths.append(int(row["cola_aproximada"]))
-            crossings_this_step.append(int(row["coches_cruzan_este_paso"]))
-            total_crossings.append(int(row["cruces_totales"]))
-            total_waiting_time.append(int(row["espera_total"]))
-            average_waiting_time.append(float(row["espera_media"].replace(",", ".")))
+            data["steps"].append(int(row["paso"]))
+            data["stopped_cars"].append(int(row["coches_parados"]))
+            data["stopped_by_light"].append(int(row["parados_por_semaforo"]))
+            data["stopped_by_car"].append(int(row["parados_por_coche_delante"]))
+            data["queue_lengths"].append(int(row["cola_aproximada"]))
+            data["crossings_this_step"].append(int(row["coches_cruzan_este_paso"]))
+            data["total_crossings"].append(int(row["cruces_totales"]))
+            data["total_waiting_time"].append(int(row["espera_total"]))
+            data["average_waiting_time"].append(
+                float(row["espera_media"].replace(",", "."))
+            )
 
-    return {
-        "steps": steps,
-        "stopped_cars": stopped_cars,
-        "stopped_by_light": stopped_by_light,
-        "stopped_by_car": stopped_by_car,
-        "queue_lengths": queue_lengths,
-        "crossings_this_step": crossings_this_step,
-        "total_crossings": total_crossings,
-        "total_waiting_time": total_waiting_time,
-        "average_waiting_time": average_waiting_time,
-    }
+    if not data["steps"]:
+        raise ValueError(
+            "El CSV solo contiene la cabecera o no tiene datos. "
+            "Ejecuta correctamente traffic_model_v05.py antes de generar las gráficas."
+        )
+
+    return data
 
 
 def save_line_plot(x, y, title, xlabel, ylabel, output_file):
@@ -82,13 +82,13 @@ def save_multiple_line_plot(x, series, title, xlabel, ylabel, output_file):
 
 def main():
     if not CSV_FILE.exists():
-        print(f"No se ha encontrado el archivo {CSV_FILE}")
-        print("Ejecuta primero traffic_model_v05.py para generar el CSV.")
-        return
-
-    OUTPUT_DIR.mkdir(exist_ok=True)
+        raise FileNotFoundError(
+            f"No se ha encontrado {CSV_FILE}. "
+            "Ejecuta primero traffic_model_v05.py."
+        )
 
     data = read_metrics(CSV_FILE)
+    OUTPUT_DIR.mkdir(exist_ok=True)
     steps = data["steps"]
 
     save_line_plot(

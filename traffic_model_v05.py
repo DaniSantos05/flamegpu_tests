@@ -6,12 +6,14 @@ Mejoras respecto a V0.4:
 - Mantiene la detección de coche delante.
 - Mantiene las métricas de cola, espera y cruces.
 - Guarda las métricas en un archivo CSV para poder analizarlas después.
+- Evita borrar el último CSV válido si CUDA o la simulación fallan.
 """
 
-import pyflamegpu
-import sys
 import csv
+import sys
 from pathlib import Path
+
+import pyflamegpu
 
 
 # Parámetros básicos
@@ -29,8 +31,10 @@ LIGHT_X = 50.0
 STOP_DISTANCE = 20.0
 SIGNAL_PERIOD = 10  # 10 pasos rojo, 10 pasos verde
 
-# Archivo CSV de salida
+# Archivos de salida
 OUTPUT_CSV = Path(__file__).with_name("traffic_metrics_v05.csv")
+TEMP_CSV = Path(__file__).with_name("traffic_metrics_v05.tmp.csv")
+PARTIAL_CSV = Path(__file__).with_name("traffic_metrics_v05_partial.csv")
 
 
 # Función de agente: cada coche publica su posición.
@@ -66,12 +70,9 @@ FLAMEGPU_AGENT_FUNCTION(car_move, flamegpu::MessageSpatial2D, flamegpu::MessageN
     bool car_ahead = false;
     bool red_light_stop = false;
 
-    // Reiniciamos esta variable en cada paso.
     FLAMEGPU->setVariable<float>("crossed_this_step", 0.0f);
 
-    // Estado del semáforo.
-    // Fase 0: rojo.
-    // Fase 1: verde.
+    // Fase 0: rojo. Fase 1: verde.
     const unsigned int step = FLAMEGPU->getStepCounter();
     const int signal_phase = (step / SIGNAL_PERIOD) % 2;
     const bool light_is_green = signal_phase == 1;
@@ -84,7 +85,6 @@ FLAMEGPU_AGENT_FUNCTION(car_move, flamegpu::MessageSpatial2D, flamegpu::MessageN
 
             const bool same_lane = fabsf(other_y - y) < 0.1f;
             const float distance = other_x - x;
-
             const bool ahead = distance > 0.0f;
             const bool too_close = distance < SAFE_DISTANCE;
 
@@ -105,11 +105,10 @@ FLAMEGPU_AGENT_FUNCTION(car_move, flamegpu::MessageSpatial2D, flamegpu::MessageN
     }
 
     if (red_light_stop || car_ahead) {
-        // El coche se detiene.
         FLAMEGPU->setVariable<float>("speed", 0.0f);
         FLAMEGPU->setVariable<float>("stopped", 1.0f);
 
-        // Damos prioridad al semáforo como motivo principal si está en zona de parada.
+        // El semáforo tiene prioridad como motivo si el coche está en su zona de parada.
         if (red_light_stop) {
             FLAMEGPU->setVariable<float>("stopped_by_light", 1.0f);
             FLAMEGPU->setVariable<float>("stopped_by_car", 0.0f);
@@ -123,7 +122,6 @@ FLAMEGPU_AGENT_FUNCTION(car_move, flamegpu::MessageSpatial2D, flamegpu::MessageN
             FLAMEGPU->getVariable<float>("waiting_time") + 1.0f
         );
     } else {
-        // El coche avanza.
         FLAMEGPU->setVariable<float>("speed", MAX_SPEED);
         FLAMEGPU->setVariable<float>("stopped", 0.0f);
         FLAMEGPU->setVariable<float>("stopped_by_light", 0.0f);
@@ -132,17 +130,15 @@ FLAMEGPU_AGENT_FUNCTION(car_move, flamegpu::MessageSpatial2D, flamegpu::MessageN
         const float old_x = x;
         x += MAX_SPEED;
 
-        // Detectamos si el coche ha cruzado el semáforo en este paso.
         if (old_x < LIGHT_X && x >= LIGHT_X) {
             FLAMEGPU->setVariable<float>("crossed_this_step", 1.0f);
-
             FLAMEGPU->setVariable<float>(
                 "total_crossings",
                 FLAMEGPU->getVariable<float>("total_crossings") + 1.0f
             );
         }
 
-        // Regla provisional: si llega al final, vuelve al inicio.
+        // Regla provisional para mantener constante la población.
         if (x > ROAD_LENGTH) {
             x = 0.0f;
         }
@@ -155,21 +151,21 @@ FLAMEGPU_AGENT_FUNCTION(car_move, flamegpu::MessageSpatial2D, flamegpu::MessageN
 """
 
 
-# Función host: imprime y guarda métricas después de mover los coches.
-class traffic_metrics(pyflamegpu.HostFunction):
-    def __init__(self, csv_path):
+class TrafficMetrics(pyflamegpu.HostFunction):
+    """Calcula, muestra y guarda las métricas después de actualizar los coches."""
+
+    def __init__(self, csv_path: Path):
         super().__init__()
         self.step = 0
         self.csv_path = csv_path
 
-    def run(self, FLAMEGPU):
-        stopped_cars = FLAMEGPU.agent("Car").sumFloat("stopped")
-        stopped_by_light = FLAMEGPU.agent("Car").sumFloat("stopped_by_light")
-        stopped_by_car = FLAMEGPU.agent("Car").sumFloat("stopped_by_car")
-        total_waiting_time = FLAMEGPU.agent("Car").sumFloat("waiting_time")
-
-        crossed_this_step = FLAMEGPU.agent("Car").sumFloat("crossed_this_step")
-        total_crossings = FLAMEGPU.agent("Car").sumFloat("total_crossings")
+    def run(self, flamegpu):
+        stopped_cars = flamegpu.agent("Car").sumFloat("stopped")
+        stopped_by_light = flamegpu.agent("Car").sumFloat("stopped_by_light")
+        stopped_by_car = flamegpu.agent("Car").sumFloat("stopped_by_car")
+        total_waiting_time = flamegpu.agent("Car").sumFloat("waiting_time")
+        crossed_this_step = flamegpu.agent("Car").sumFloat("crossed_this_step")
+        total_crossings = flamegpu.agent("Car").sumFloat("total_crossings")
 
         average_waiting_time = total_waiting_time / CAR_COUNT
         queue_length = stopped_cars
@@ -177,8 +173,7 @@ class traffic_metrics(pyflamegpu.HostFunction):
         phase = (self.step // SIGNAL_PERIOD) % 2
         light_state = "ROJO" if phase == 0 else "VERDE"
 
-        # Guardar métricas en CSV en cada paso.
-        with open(self.csv_path, mode="a", newline="", encoding="utf-8") as file:
+        with self.csv_path.open(mode="a", newline="", encoding="utf-8") as file:
             writer = csv.writer(file, delimiter=";")
             writer.writerow([
                 self.step,
@@ -190,10 +185,9 @@ class traffic_metrics(pyflamegpu.HostFunction):
                 int(crossed_this_step),
                 int(total_crossings),
                 int(total_waiting_time),
-                f"{average_waiting_time:.2f}".replace(".", ",")
+                f"{average_waiting_time:.2f}".replace(".", ","),
             ])
 
-        # Imprimir cada 5 pasos para que la terminal sea legible.
         if self.step % 5 == 0:
             print(
                 f"Paso {self.step}: "
@@ -210,9 +204,9 @@ class traffic_metrics(pyflamegpu.HostFunction):
         self.step += 1
 
 
-def create_csv_file():
-    # Se sobrescribe el CSV cada vez que se ejecuta la simulación.
-    with open(OUTPUT_CSV, mode="w", newline="", encoding="utf-8") as file:
+def create_csv_file(csv_path: Path) -> None:
+    """Crea un CSV nuevo con la cabecera, sin tocar el último resultado válido."""
+    with csv_path.open(mode="w", newline="", encoding="utf-8") as file:
         writer = csv.writer(file, delimiter=";")
         writer.writerow([
             "paso",
@@ -224,18 +218,14 @@ def create_csv_file():
             "coches_cruzan_este_paso",
             "cruces_totales",
             "espera_total",
-            "espera_media"
+            "espera_media",
         ])
 
 
-def main():
-    # Crear archivo CSV con cabecera.
-    create_csv_file()
-
-    # Crear modelo
+def build_model():
+    """Construye la descripción del modelo y devuelve el modelo y el agente Car."""
     model = pyflamegpu.ModelDescription("traffic_model_v05")
 
-    # Propiedades globales
     env = model.Environment()
     env.newPropertyFloat("road_length", ROAD_LENGTH)
     env.newPropertyFloat("max_speed", MAX_SPEED)
@@ -244,14 +234,12 @@ def main():
     env.newPropertyFloat("stop_distance", STOP_DISTANCE)
     env.newPropertyInt("signal_period", SIGNAL_PERIOD)
 
-    # Mensaje espacial para comunicar posiciones de coches
     message = model.newMessageSpatial2D("car_location")
     message.newVariableID("id")
     message.setRadius(SAFE_DISTANCE)
     message.setMin(0.0, 0.0)
     message.setMax(ROAD_LENGTH, ROAD_WIDTH)
 
-    # Agente Car
     car = model.newAgent("Car")
     car.newVariableFloat("x")
     car.newVariableFloat("y")
@@ -263,36 +251,29 @@ def main():
     car.newVariableFloat("crossed_this_step")
     car.newVariableFloat("total_crossings")
 
-    # Función 1: publicar posición
     output_fn = car.newRTCFunction("car_output_position", car_output_position)
     output_fn.setMessageOutput("car_location")
 
-    # Función 2: moverse o detenerse
     move_fn = car.newRTCFunction("car_move", car_move)
     move_fn.setMessageInput("car_location")
 
-    # Capas explícitas de ejecución.
-    # Capa 1: los coches publican su posición.
     layer_output = model.newLayer()
     layer_output.addAgentFunction(output_fn)
 
-    # Capa 2: los coches leen posiciones y deciden si avanzan o paran.
     layer_move = model.newLayer()
     layer_move.addAgentFunction(move_fn)
 
-    # Capa 3: se calculan y guardan métricas.
     layer_metrics = model.newLayer()
-    layer_metrics.addHostFunction(traffic_metrics(str(OUTPUT_CSV)))
+    layer_metrics.addHostFunction(TrafficMetrics(TEMP_CSV))
 
-    # Crear simulación CUDA
-    simulation = pyflamegpu.CUDASimulation(model)
-    simulation.initialise(sys.argv)
+    return model, car
 
-    # Crear población inicial
+
+def create_initial_population(car):
+    """Crea la población inicial utilizada por el prototipo."""
     population = pyflamegpu.AgentVector(car, CAR_COUNT)
 
     for i, instance in enumerate(population):
-        # Coches antes del semáforo y bastante juntos.
         x = 5.0 + (i % 80) * 0.55
 
         instance.setVariableFloat("x", x)
@@ -305,16 +286,47 @@ def main():
         instance.setVariableFloat("crossed_this_step", 0.0)
         instance.setVariableFloat("total_crossings", 0.0)
 
-    simulation.setPopulationData(population)
+    return population
 
-    print("Iniciando simulación V0.5: métricas guardadas en CSV...")
 
-    simulation.simulate()
+def main() -> None:
+    simulation = None
 
-    print("Simulación terminada correctamente.")
-    print(f"Archivo CSV creado: {OUTPUT_CSV}")
+    # El CSV definitivo no se toca hasta que la simulación haya terminado bien.
+    TEMP_CSV.unlink(missing_ok=True)
+    PARTIAL_CSV.unlink(missing_ok=True)
 
-    pyflamegpu.cleanup()
+    try:
+        model, car = build_model()
+
+        simulation = pyflamegpu.CUDASimulation(model)
+        simulation.initialise(sys.argv)
+
+        population = create_initial_population(car)
+        simulation.setPopulationData(population)
+
+        # Se crea el temporal solo después de que CUDA y la simulación se inicialicen.
+        create_csv_file(TEMP_CSV)
+
+        print("Iniciando simulación V0.5: métricas guardadas en CSV...")
+        simulation.simulate()
+
+        # Sustitución atómica: el resultado anterior se conserva hasta este punto.
+        TEMP_CSV.replace(OUTPUT_CSV)
+
+        print("Simulación terminada correctamente.")
+        print(f"Archivo CSV creado: {OUTPUT_CSV}")
+
+    except Exception:
+        # Si había datos parciales, se guardan aparte para facilitar el diagnóstico.
+        if TEMP_CSV.exists():
+            TEMP_CSV.replace(PARTIAL_CSV)
+            print(f"Se han conservado datos parciales en: {PARTIAL_CSV}")
+        raise
+
+    finally:
+        if simulation is not None:
+            pyflamegpu.cleanup()
 
 
 if __name__ == "__main__":
