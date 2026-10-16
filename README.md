@@ -1,158 +1,89 @@
 # Prototipo de tráfico con FLAME GPU 2
 
-Repositorio de trabajo para el TFG sobre simulación basada en agentes de tráfico urbano mediante FLAME GPU 2.
+Proyecto de trabajo del TFG sobre simulación de tráfico mediante agentes en GPU.
+El desarrollo actual utiliza Python para describir y ejecutar el modelo, y funciones RTC en C++ para actualizar los agentes en la GPU.
 
-El proyecto se encuentra en fase de **prototipado en Python**. El objetivo actual es comprender y validar la arquitectura del modelo antes de ampliar el escenario a un cruce completo y estudiar su migración final a C++.
+## Archivos de trabajo
 
-## Estado actual
+| Archivo | Uso |
+| --- | --- |
+| `traffic_model.py` | Modelo principal que se modifica a partir de ahora. |
+| `plot_traffic_metrics.py` | Genera las gráficas del CSV seleccionado. |
+| `requirements.txt` | Dependencias del entorno sin visualización. |
+| `traffic_metrics.csv` | Resultado de la última ejecución correcta del modelo principal. |
+| `traffic_metrics_v08.csv` | Resultado de referencia que se conserva al reorganizar el proyecto. |
 
-La versión más avanzada es `traffic_model_v05.py`. Representa una carretera recta con:
+Las etapas anteriores del modelo se conservan mediante commits. Antes de retirar los archivos `traffic_model_v*.py` de la carpeta de trabajo, se guardan en Git el código de V0.8 y su CSV de referencia. Los ejemplos con Circles y los resultados anteriores se mantienen como material de trabajo independiente.
 
-- 100 coches modelados como agentes.
-- Un semáforo situado en una posición fija.
-- Detección de vehículos próximos mediante mensajes espaciales.
-- Parada por semáforo rojo.
-- Parada por vehículo delantero.
-- Formación y liberación progresiva de cola.
-- Métricas de espera, cola y cruces.
-- Exportación de resultados a CSV.
-- Generación automática de gráficas PNG.
+## Estado del modelo
 
-## Arquitectura
+La base de `traffic_model.py` es la lógica de V0.8, comprobada en el portátil Windows con GPU NVIDIA el 15 de octubre de 2026. La reorganización cambia los nombres del modelo y de sus archivos de salida; conserva las funciones RTC, las reglas de tráfico y los parámetros.
 
-### Parte gestionada desde Python / host
+- Carretera de un carril con longitud de 100 unidades y un semáforo en la posición 50.
+- 20 coches en posiciones iniciales distintas: de 5 a 62, separados por 3 unidades.
+- Avance máximo de 1 unidad por paso y separación de seguridad de 2 unidades entre posiciones.
+- Consulta de posiciones con `MessageSpatial2D` y radio de 3 unidades.
+- Fase inicial roja de 10 pasos, seguida de 10 pasos en verde.
+- Visor oficial con colores según el avance de los coches y la fase del semáforo.
 
-Python se encarga de:
+Cada paso utiliza cuatro capas: publicar posiciones, actualizar movimiento, actualizar el semáforo visual y calcular las métricas.
 
-- Crear el `ModelDescription`.
-- Definir las propiedades globales del entorno.
-- Declarar el agente `Car` y sus variables.
-- Configurar el mensaje espacial `car_location`.
-- Construir las capas y su orden de ejecución.
-- Inicializar la población de vehículos.
-- Lanzar la simulación CUDA.
-- Calcular métricas globales mediante una función host.
-- Guardar métricas en CSV.
-- Generar las gráficas de resultados.
+## Ejecución en Windows
 
-### Parte ejecutada en GPU
-
-Las funciones RTC se compilan en tiempo de ejecución y se ejecutan en paralelo para cada agente:
-
-- `car_output_position`: publica el identificador y la posición del coche.
-- `car_move`: consulta vehículos cercanos, comprueba el semáforo, decide si el coche avanza o se detiene y actualiza sus variables.
-
-### Orden de ejecución
-
-La versión V0.5 utiliza tres capas:
-
-1. Publicación de las posiciones.
-2. Lectura de mensajes y actualización del movimiento.
-3. Cálculo y almacenamiento de métricas.
-
-## Estructura principal
-
-```text
-benchmark_model.py          Pruebas iniciales de rendimiento con Circles
-model.py                    Ejemplo oficial Circles comentado
-model_original.py           Copia del ejemplo oficial
-traffic_model_v0.py         Carretera recta inicial
-traffic_model_v02.py        Incorporación del semáforo
-traffic_model_v03.py        Semáforo y detección de coche delantero
-traffic_model_v04.py        Incorporación de métricas
-traffic_model_v05.py        Exportación robusta a CSV
-plot_traffic_metrics.py     Generación de gráficas
-traffic_metrics_v05.csv     Métricas generadas por la simulación
-graficas_v05/               Gráficas generadas desde el CSV
-```
-
-## Requisitos utilizados
-
-- Windows.
-- GPU NVIDIA compatible con CUDA.
-- CUDA Toolkit 13.x.
-- Python 3.12.
-- `pyflamegpu` para CUDA 13.
-- `matplotlib`.
-
-## Instalación
-
-Desde PowerShell, en la raíz del repositorio:
+Desde PowerShell, en la carpeta del proyecto, utilizando el entorno con visualización ya instalado:
 
 ```powershell
-py -3.12 -m venv venv
-.\venv\Scripts\activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
+.\venv_vis\Scripts\python.exe traffic_model.py -s 20 -r 12
 ```
 
-El archivo `requirements.txt` utiliza el repositorio de paquetes de FLAME GPU para CUDA 13.
+La prueba de referencia utiliza 20 pasos y semilla 12. Al terminar, el visor mantiene el último fotograma; hay que cerrar su ventana para finalizar el programa.
 
-## Ejecución
-
-Ejemplo reproducible con 200 pasos y semilla 12:
+Para generar las gráficas del nuevo CSV:
 
 ```powershell
-.\venv\Scripts\activate
-python traffic_model_v05.py -s 200 -r 12
-python plot_traffic_metrics.py
-```
-
-También puede ejecutarse directamente con el intérprete del entorno, sin activarlo:
-
-```powershell
-.\venv\Scripts\python.exe traffic_model_v05.py -s 200 -r 12
 .\venv\Scripts\python.exe plot_traffic_metrics.py
 ```
 
-## Resultados
+También se puede representar un resultado anterior sin cambiar el script:
 
-`traffic_model_v05.py` genera `traffic_metrics_v05.csv` con estas columnas:
-
-- `paso`
-- `estado_semaforo`
-- `coches_parados`
-- `parados_por_semaforo`
-- `parados_por_coche_delante`
-- `cola_aproximada`
-- `coches_cruzan_este_paso`
-- `cruces_totales`
-- `espera_total`
-- `espera_media`
-
-`plot_traffic_metrics.py` genera en `graficas_v05/`:
-
-- `espera_media.png`
-- `cola_aproximada.png`
-- `cruces_totales.png`
-- `motivos_parada.png`
-- `parados_y_cola.png`
-
-La versión corregida escribe primero en un CSV temporal. El CSV definitivo solo se sustituye cuando la simulación termina correctamente. Si la ejecución falla, se conserva el CSV anterior y, cuando existen datos parciales, se guardan en `traffic_metrics_v05_partial.csv`.
-
-## Visualización
-
-La instalación actual devuelve:
-
-```python
-pyflamegpu.VISUALISATION == False
+```powershell
+.\venv\Scripts\python.exe plot_traffic_metrics.py --csv traffic_metrics_v08.csv --output-dir graficas_v08
 ```
 
-Por tanto, actualmente se utilizan métricas, CSV y gráficas. Queda pendiente decidir entre instalar una distribución de FLAME GPU con visualización o crear un visor propio a partir de las posiciones de los vehículos.
+Los entornos utilizados son `venv` (sin visor) y `venv_vis` (con `pyflamegpu==2.0.0rc4+cuda130.vis`). `requirements.txt` corresponde al primero. Para reproducir el segundo en otro equipo:
 
-## Limitaciones actuales
+```powershell
+py -3.12 -m venv venv_vis
+.\venv_vis\Scripts\python.exe -m pip install --upgrade pip
+.\venv_vis\Scripts\python.exe -m pip install --extra-index-url https://whl.flamegpu.com/whl/cuda130-vis/ pyflamegpu==2.0.0rc4+cuda130.vis
+```
 
-- El escenario todavía es una carretera recta, no un cruce completo.
-- Solo existe un carril y una dirección de circulación.
-- Los vehículos iniciales se crean desde el propio código.
-- Los vehículos vuelven al inicio al final de la carretera.
-- El semáforo se representa mediante propiedades y reglas del entorno.
-- La cola aproximada equivale, por ahora, al número de coches parados.
-- El prototipo está implementado en Python; la versión final se plantea en C++.
+## Resultados y comprobaciones
+
+El CSV usa punto y coma como separador y coma decimal. Registra paso, fase, coches parados, motivos de parada, cola aproximada, cruces por paso, cruces acumulados, espera total y media, distancia mínima y parejas consecutivas con separación insuficiente.
+
+La distancia mínima se calcula ordenando las posiciones del único carril después del movimiento. Si detecta una distancia inferior a 2 unidades, admitiendo una tolerancia de `1e-5` por redondeo, la prueba termina con error. Esta lectura desde el host sirve como diagnóstico para 20 coches y no como medida del rendimiento de la GPU.
+
+El resultado se escribe primero en `traffic_metrics.tmp.csv`. Tras una ejecución correcta se sustituye `traffic_metrics.csv`; en caso de error se conserva el CSV anterior y los datos disponibles quedan en `traffic_metrics_partial.csv`.
+
+Resultados observados en GPU con 20 pasos y semilla 12:
+
+| Etapa | Cruces finales | Espera media acumulada por coche | Comprobación de separación |
+| --- | ---: | ---: | --- |
+| V0.7 | 3 | 5,25 pasos | No incluía esta métrica. |
+| V0.8 | 3 | 7,50 pasos | Mínimo global de 2 unidades y cero parejas inseguras en los 20 pasos. |
+
+Las gráficas se guardan en `graficas/`: espera media, cola aproximada, cruces totales, motivos de parada y coches parados frente a cola aproximada. Estas dos últimas series siguen siendo equivalentes mientras no se defina una cola espacial real.
+
+## Próximos cambios y límites
+
+La siguiente mejora es sustituir la zona de parada de 20 unidades por una parada ante la línea del semáforo, conservando la separación entre coches.
+
+El modelo todavía usa posiciones puntuales y unidades abstractas. La espera cuenta pasos detenidos y no segundos ni el tiempo medio de un trayecto completo. Al terminar la carretera, los coches vuelven provisionalmente a cero; esa regla puede introducir conflictos en pruebas largas. La prueba de 20 pasos evita ese retorno. Quedan pendientes la longitud de los vehículos, las unidades físicas, la cola espacial, las entradas y salidas y el escenario de cruce.
 
 ## Referencias
 
-- Documentación: https://docs.flamegpu.com/
-- Tutorial oficial: https://docs.flamegpu.com/tutorial/index.html
-- Plantilla Python: https://github.com/FLAMEGPU/FLAMEGPU2-model-template-python
-- Plantilla C++: https://github.com/FLAMEGPU/FLAMEGPU2-model-template-cpp
+- [Documentación de FLAME GPU 2](https://docs.flamegpu.com/)
+- [Mensajes espaciales](https://docs.flamegpu.com/guide/defining-messages-communication/index.html)
+- [Operaciones de agentes desde el host](https://docs.flamegpu.com/guide/host-functions/agent-operations.html)
+- [Repositorio del proyecto](https://github.com/DaniSantos05/flamegpu_tests)

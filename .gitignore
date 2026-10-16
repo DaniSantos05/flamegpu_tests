@@ -20,6 +20,6 @@ __pycache__/
 Thumbs.db
 
 # Archivos temporales de la exportación
-traffic_metrics_v05.tmp.csv
-traffic_metrics_v05_partial.csv
+traffic_metrics*.tmp.csv
+traffic_metrics*_partial.csv
 venv_vis/

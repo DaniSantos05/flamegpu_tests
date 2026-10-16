@@ -1,17 +1,19 @@
 """
-Generación de gráficas para el modelo de tráfico V0.5.
+Generación de gráficas para el modelo de tráfico.
 
-Lee traffic_metrics_v05.csv y genera varias gráficas PNG.
+Por defecto lee traffic_metrics.csv y guarda cinco gráficas en graficas/.
+Permite elegir otro CSV y otra carpeta mediante argumentos.
 """
 
+import argparse
 import csv
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 
 
-CSV_FILE = Path("traffic_metrics_v05.csv")
-OUTPUT_DIR = Path("graficas_v05")
+CSV_FILE = Path(__file__).with_name("traffic_metrics.csv")
+OUTPUT_DIR = Path(__file__).with_name("graficas")
 
 
 def read_metrics(csv_file):
@@ -46,7 +48,7 @@ def read_metrics(csv_file):
     if not data["steps"]:
         raise ValueError(
             "El CSV solo contiene la cabecera o no tiene datos. "
-            "Ejecuta correctamente traffic_model_v05.py antes de generar las gráficas."
+            "Ejecuta correctamente traffic_model.py antes de generar las gráficas."
         )
 
     return data
@@ -81,14 +83,21 @@ def save_multiple_line_plot(x, series, title, xlabel, ylabel, output_file):
 
 
 def main():
-    if not CSV_FILE.exists():
+    parser = argparse.ArgumentParser(description="Genera las gráficas del modelo de tráfico.")
+    parser.add_argument("--csv", type=Path, default=CSV_FILE, help="CSV que se quiere representar.")
+    parser.add_argument("--output-dir", type=Path, default=OUTPUT_DIR, help="Carpeta de las gráficas.")
+    args = parser.parse_args()
+    csv_file = args.csv
+    output_dir = args.output_dir
+
+    if not csv_file.exists():
         raise FileNotFoundError(
-            f"No se ha encontrado {CSV_FILE}. "
-            "Ejecuta primero traffic_model_v05.py."
+            f"No se ha encontrado {csv_file}. "
+            "Ejecuta primero traffic_model.py o selecciona un CSV con --csv."
         )
 
-    data = read_metrics(CSV_FILE)
-    OUTPUT_DIR.mkdir(exist_ok=True)
+    data = read_metrics(csv_file)
+    output_dir.mkdir(parents=True, exist_ok=True)
     steps = data["steps"]
 
     save_line_plot(
@@ -97,7 +106,7 @@ def main():
         "Evolución de la espera media",
         "Paso de simulación",
         "Espera media por coche",
-        OUTPUT_DIR / "espera_media.png",
+        output_dir / "espera_media.png",
     )
 
     save_line_plot(
@@ -106,7 +115,7 @@ def main():
         "Evolución de la cola aproximada",
         "Paso de simulación",
         "Coches en cola",
-        OUTPUT_DIR / "cola_aproximada.png",
+        output_dir / "cola_aproximada.png",
     )
 
     save_line_plot(
@@ -115,7 +124,7 @@ def main():
         "Cruces totales del semáforo",
         "Paso de simulación",
         "Número acumulado de cruces",
-        OUTPUT_DIR / "cruces_totales.png",
+        output_dir / "cruces_totales.png",
     )
 
     save_multiple_line_plot(
@@ -127,7 +136,7 @@ def main():
         "Motivo de parada de los coches",
         "Paso de simulación",
         "Número de coches",
-        OUTPUT_DIR / "motivos_parada.png",
+        output_dir / "motivos_parada.png",
     )
 
     save_multiple_line_plot(
@@ -139,11 +148,11 @@ def main():
         "Coches parados y cola aproximada",
         "Paso de simulación",
         "Número de coches",
-        OUTPUT_DIR / "parados_y_cola.png",
+        output_dir / "parados_y_cola.png",
     )
 
     print("Gráficas generadas correctamente en la carpeta:")
-    print(OUTPUT_DIR.resolve())
+    print(output_dir.resolve())
 
 
 if __name__ == "__main__":

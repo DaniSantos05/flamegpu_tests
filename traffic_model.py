@@ -1,16 +1,15 @@
 """
-Modelo V0.8 de tráfico con FLAME GPU 2: separación durante el movimiento.
+Prototipo de tráfico con FLAME GPU 2: archivo principal del TFG.
 
-Cambios respecto a V0.7:
-- Limita el avance para dejar SAFE_DISTANCE hasta la posición actual
-  del coche delantero. Permite avances parciales.
-- Amplía el radio de mensajes a SAFE_DISTANCE + MAX_SPEED.
-- Añade la distancia mínima y los pares consecutivos inseguros al CSV.
-- Detiene la prueba si detecta una separación inferior a la permitida.
-- Guarda los resultados en archivos propios de V0.8.
+Reúne la lógica de V0.8, comprobada en GPU con 20 pasos y semilla 12
+el 15 de octubre de 2026. Las siguientes mejoras se registran en Git
+manteniendo el nombre de este archivo.
 
-Conserva los 20 coches de V0.7 y su separación inicial de 3 unidades.
-La prueba propuesta dura 20 pasos y ningún coche llega al final de la vía.
+Crea 20 coches separados inicialmente por 3 unidades y limita su avance
+para conservar SAFE_DISTANCE hasta la posición actual del coche delantero.
+Registra las métricas, la distancia mínima y los pares inseguros en CSV.
+
+La prueba de referencia dura 20 pasos y no llega al final de la vía.
 El retorno provisional al inicio todavía puede introducir conflictos
 en pruebas más largas; no representa una entrada de vehículos válida.
 También quedan pendientes la parada en la línea del semáforo, la longitud
@@ -50,9 +49,9 @@ STOP_DISTANCE = 20.0
 SIGNAL_PERIOD = 10  # 10 pasos rojo, 10 pasos verde
 
 # Archivos de salida
-OUTPUT_CSV = Path(__file__).with_name("traffic_metrics_v08.csv")
-TEMP_CSV = Path(__file__).with_name("traffic_metrics_v08.tmp.csv")
-PARTIAL_CSV = Path(__file__).with_name("traffic_metrics_v08_partial.csv")
+OUTPUT_CSV = Path(__file__).with_name("traffic_metrics.csv")
+TEMP_CSV = Path(__file__).with_name("traffic_metrics.tmp.csv")
+PARTIAL_CSV = Path(__file__).with_name("traffic_metrics_partial.csv")
 
 
 # Función de agente: cada coche publica su posición.
@@ -303,7 +302,7 @@ def create_csv_file(csv_path: Path) -> None:
 
 def build_model():
     """Construye la descripción del modelo y devuelve el modelo y el agente Car."""
-    model = pyflamegpu.ModelDescription("traffic_model_v08")
+    model = pyflamegpu.ModelDescription("traffic_model")
 
     env = model.Environment()
     env.newPropertyFloat("road_length", ROAD_LENGTH)
@@ -453,7 +452,7 @@ def main() -> None:
         simulation.setPopulationData(light_population)
 
         # ---------------------------------------------------------
-        # VISUALIZACIÓN DEL MODELO DE TRÁFICO V0.8
+        # VISUALIZACIÓN DEL MODELO DE TRÁFICO
         # ---------------------------------------------------------
         if pyflamegpu.VISUALISATION:
 
@@ -461,7 +460,7 @@ def main() -> None:
             visualisation = simulation.getVisualisation()
 
             # Título y dimensiones de la ventana.
-            visualisation.setWindowTitle("Traffic model V0.8 - distancia de seguridad")
+            visualisation.setWindowTitle("Traffic model - distancia de seguridad")
             visualisation.setWindowDimensions(1280, 720)
 
             # Fondo oscuro.
@@ -606,7 +605,7 @@ def main() -> None:
 
         create_csv_file(TEMP_CSV)
 
-        print("Iniciando simulación V0.8...")
+        print("Iniciando simulación de tráfico...")
 
         simulation.simulate()
 
