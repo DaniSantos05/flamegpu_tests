@@ -1,0 +1,38 @@
+{
+  "model": "carretera_fisica_poblacion_dinamica",
+  "config": {
+    "initial_cars": 20,
+    "time_step_s": 1.0,
+    "road_length_m": 500.0,
+    "domain_width_m": 100.0,
+    "lane_y_m": 50.0,
+    "lane_width_m": 3.5,
+    "vehicle_length_m": 4.5,
+    "vehicle_width_m": 1.8,
+    "vehicle_height_m": 1.5,
+    "min_gap_m": 5.5,
+    "max_speed_mps": 5.0,
+    "initial_x_m": 25.0,
+    "initial_spacing_m": 15.0,
+    "light_x_m": 250.0,
+    "red_duration_s": 10.0,
+    "green_duration_s": 10.0,
+    "arrival_interval_s": 6.0,
+    "queue_join_gap_m": 5.5,
+    "spacing_tolerance_m": 5e-05
+  },
+  "steps": 200,
+  "seed": 12,
+  "python_version": "3.12.10",
+  "pyflamegpu_version": "2.0.0rc4+cuda130.vis",
+  "backend": "FLAME GPU 2 CUDA",
+  "front_coordinate": "x",
+  "effective_light_x_m": 250.0,
+  "visualisation_view": "detail",
+  "units": {
+    "position": "m",
+    "speed": "m/s",
+    "waiting_time": "s"
+  },
+  "assumptions": "Parámetros provisionales, sin calibración con datos reales."
+}

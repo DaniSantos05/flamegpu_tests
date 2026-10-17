@@ -1,638 +1,580 @@
 """
-Prototipo de tráfico con FLAME GPU 2: archivo principal del TFG.
+Carretera de un carril con FLAME GPU 2, unidades físicas y población dinámica.
 
-Reúne la lógica de V0.8, comprobada en GPU con 20 pasos y semilla 12
-el 15 de octubre de 2026. Las siguientes mejoras se registran en Git
-manteniendo el nombre de este archivo.
-
-Crea 20 coches separados inicialmente por 3 unidades y limita su avance
-para conservar SAFE_DISTANCE hasta la posición actual del coche delantero.
-Registra las métricas, la distancia mínima y los pares inseguros en CSV.
-
-La prueba de referencia dura 20 pasos y no llega al final de la vía.
-El retorno provisional al inicio todavía puede introducir conflictos
-en pruebas más largas; no representa una entrada de vehículos válida.
-También quedan pendientes la parada en la línea del semáforo, la longitud
-física de los coches, las unidades físicas y la cola real.
+x es el frontal del vehículo (m), speed su velocidad real (m/s) y
+waiting_time la espera observada acumulada (s). Los supuestos iniciales
+no están calibrados con tráfico real. El modelo sigue siendo un prototipo
+en Python con comportamiento RTC en GPU; la migración final sigue aplazada.
 """
 
+import argparse
 import csv
+import json
+import struct
 import sys
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 import pyflamegpu
 
+from traffic_core import (
+    TrafficConfig,
+    VehicleSnapshot,
+    calculate_queue,
+    calculate_spacing,
+    phase_for_step,
+)
 
-# Parámetros básicos
-CAR_COUNT = 20
 
-ROAD_LENGTH = 100.0
-ROAD_WIDTH = 100.0
-LANE_Y = 50.0
-
-MAX_SPEED = 1.0
-SAFE_DISTANCE = 2.0
-
-# Hay que observar al líder antes de invadir la distancia de seguridad.
-MESSAGE_RADIUS = SAFE_DISTANCE + MAX_SPEED
-# Tolerancia únicamente para comprobar errores de redondeo de float.
-SPACING_TOLERANCE = 1e-5
-
-# Posiciones iniciales: 5, 8, 11, ..., 62.
-# Todavía son unidades del modelo, no metros.
-INITIAL_X = 5.0
-INITIAL_SPACING = 3.0
-
-# Semáforo
-LIGHT_X = 50.0
-STOP_DISTANCE = 20.0
-SIGNAL_PERIOD = 10  # 10 pasos rojo, 10 pasos verde
-
-# Archivos de salida
 OUTPUT_CSV = Path(__file__).with_name("traffic_metrics.csv")
-TEMP_CSV = Path(__file__).with_name("traffic_metrics.tmp.csv")
-PARTIAL_CSV = Path(__file__).with_name("traffic_metrics_partial.csv")
+CSV_COLUMNS = [
+    "paso", "estado_semaforo", "coches_parados", "parados_por_semaforo",
+    "parados_por_coche_delante", "cola_aproximada", "coches_cruzan_este_paso",
+    "cruces_totales", "espera_total", "espera_media", "distancia_minima",
+    "pares_consecutivos_inseguros", "cruces_en_rojo", "posicion_primero_antes_linea",
+    "tiempo_s", "coches_presentes", "coches_en_cola", "longitud_cola_m",
+    "hueco_libre_minimo_m", "llegadas_solicitadas", "llegadas_admitidas",
+    "pendientes_entrada", "salidas_este_paso", "salidas_totales",
+    "coches_introducidos_totales", "espera_media_presentes_s", "espera_media_salidos_s",
+]
 
 
-# Función de agente: cada coche publica su posición.
 car_output_position = r"""
 FLAMEGPU_AGENT_FUNCTION(car_output_position, flamegpu::MessageNone, flamegpu::MessageSpatial2D) {
     FLAMEGPU->message_out.setVariable<flamegpu::id_t>("id", FLAMEGPU->getID());
-
     FLAMEGPU->message_out.setLocation(
         FLAMEGPU->getVariable<float>("x"),
         FLAMEGPU->getVariable<float>("y"));
-
     return flamegpu::ALIVE;
 }
 """
 
-
-# Función de agente: cada coche decide si se mueve o se detiene.
 car_move = r"""
 FLAMEGPU_AGENT_FUNCTION(car_move, flamegpu::MessageSpatial2D, flamegpu::MessageNone) {
     const flamegpu::id_t ID = FLAMEGPU->getID();
-
-    const float ROAD_LENGTH = FLAMEGPU->environment.getProperty<float>("road_length");
-    const float MAX_SPEED = FLAMEGPU->environment.getProperty<float>("max_speed");
-    const float SAFE_DISTANCE = FLAMEGPU->environment.getProperty<float>("safe_distance");
-
-    const float LIGHT_X = FLAMEGPU->environment.getProperty<float>("light_x");
-    const float STOP_DISTANCE = FLAMEGPU->environment.getProperty<float>("stop_distance");
-    const int SIGNAL_PERIOD = FLAMEGPU->environment.getProperty<int>("signal_period");
+    const float DT = FLAMEGPU->environment.getProperty<float>("time_step_s");
+    const float MAX_SPEED = FLAMEGPU->environment.getProperty<float>("max_speed_mps");
+    const float SAFE_DISTANCE = FLAMEGPU->environment.getProperty<float>("safe_distance_m");
+    const float LENGTH = FLAMEGPU->environment.getProperty<float>("vehicle_length_m");
+    const float ROAD_LENGTH = FLAMEGPU->environment.getProperty<float>("road_length_m");
+    const float LIGHT_X = FLAMEGPU->environment.getProperty<float>("light_x_m");
+    const unsigned int RED_STEPS = FLAMEGPU->environment.getProperty<unsigned int>("red_steps");
+    const unsigned int GREEN_STEPS = FLAMEGPU->environment.getProperty<unsigned int>("green_steps");
 
     float x = FLAMEGPU->getVariable<float>("x");
-    float y = FLAMEGPU->getVariable<float>("y");
-
-    float allowed_move = MAX_SPEED;
+    const float y = FLAMEGPU->getVariable<float>("y");
+    const unsigned int step = FLAMEGPU->getStepCounter();
+    const bool red = step % (RED_STEPS + GREEN_STEPS) < RED_STEPS;
+    float allowed_move = MAX_SPEED * DT;
     bool red_light_stop = false;
-
     FLAMEGPU->setVariable<float>("crossed_this_step", 0.0f);
 
-    // Fase 0: rojo. Fase 1: verde.
-    const unsigned int step = FLAMEGPU->getStepCounter();
-    const int signal_phase = (step / SIGNAL_PERIOD) % 2;
-    const bool light_is_green = signal_phase == 1;
-
-    // Todos consultan las posiciones publicadas antes del movimiento.
-    // Dejamos la separación incluso si el líder no avanza en este paso.
+    // Se usan posiciones anteriores al movimiento de todos los coches.
     for (const auto &message : FLAMEGPU->message_in(x, y)) {
-        if (message.getVariable<flamegpu::id_t>("id") != ID) {
-            const float other_x = message.getVariable<float>("x");
-            const float other_y = message.getVariable<float>("y");
-
-            const bool same_lane = fabsf(other_y - y) < 0.1f;
-            const float distance = other_x - x;
-            const bool ahead = distance > 0.0f;
-            if (same_lane && ahead) {
-                const float free_distance = fmaxf(0.0f, distance - SAFE_DISTANCE);
-                allowed_move = fminf(allowed_move, free_distance);
-            }
+        if (message.getVariable<flamegpu::id_t>("id") == ID) {
+            continue;
+        }
+        const float other_x = message.getVariable<float>("x");
+        const float other_y = message.getVariable<float>("y");
+        const float distance = other_x - x;
+        if (fabsf(other_y - y) < 0.1f && distance > 0.0f) {
+            // Distancia entre frontales = longitud + hueco libre.
+            allowed_move = fminf(allowed_move, fmaxf(0.0f, distance - SAFE_DISTANCE));
         }
     }
 
-    // Detectar semáforo rojo.
-    if (!light_is_green) {
-        const bool before_light = x < LIGHT_X;
-        const bool close_to_light = (LIGHT_X - x) <= STOP_DISTANCE;
-
-        if (before_light && close_to_light) {
-            red_light_stop = true;
-        }
+    if (red && x <= LIGHT_X) {
+        const float distance_to_line = LIGHT_X - x;
+        allowed_move = fminf(allowed_move, distance_to_line);
+        red_light_stop = distance_to_line <= 0.0f;
     }
 
-    const bool blocked_by_car = allowed_move <= 0.0f;
-
-    if (red_light_stop || blocked_by_car) {
+    const float old_x = x;
+    const float new_x = x + allowed_move;
+    const float actual_move = new_x - old_x;
+    // Un avance menor que la resolución float puede dejar x sin cambios.
+    if (actual_move <= 0.0f) {
         FLAMEGPU->setVariable<float>("speed", 0.0f);
         FLAMEGPU->setVariable<float>("stopped", 1.0f);
-
-        // El semáforo tiene prioridad como motivo si el coche está en su zona de parada.
-        if (red_light_stop) {
-            FLAMEGPU->setVariable<float>("stopped_by_light", 1.0f);
-            FLAMEGPU->setVariable<float>("stopped_by_car", 0.0f);
-        } else {
-            FLAMEGPU->setVariable<float>("stopped_by_light", 0.0f);
-            FLAMEGPU->setVariable<float>("stopped_by_car", 1.0f);
-        }
-
-        FLAMEGPU->setVariable<float>(
-            "waiting_time",
-            FLAMEGPU->getVariable<float>("waiting_time") + 1.0f
-        );
+        FLAMEGPU->setVariable<float>("stopped_by_light", red_light_stop ? 1.0f : 0.0f);
+        FLAMEGPU->setVariable<float>("stopped_by_car", red_light_stop ? 0.0f : 1.0f);
+        FLAMEGPU->setVariable<float>("waiting_time",
+            FLAMEGPU->getVariable<float>("waiting_time") + DT);
     } else {
-        // speed sigue siendo el avance por paso, sin unidades físicas.
-        FLAMEGPU->setVariable<float>("speed", allowed_move);
+        x = new_x;
+        FLAMEGPU->setVariable<float>("speed", actual_move / DT);
         FLAMEGPU->setVariable<float>("stopped", 0.0f);
         FLAMEGPU->setVariable<float>("stopped_by_light", 0.0f);
         FLAMEGPU->setVariable<float>("stopped_by_car", 0.0f);
-
-        const float old_x = x;
-        x += allowed_move;
-
-        if (old_x < LIGHT_X && x >= LIGHT_X) {
+        if (old_x <= LIGHT_X && x > LIGHT_X) {
             FLAMEGPU->setVariable<float>("crossed_this_step", 1.0f);
-            FLAMEGPU->setVariable<float>(
-                "total_crossings",
-                FLAMEGPU->getVariable<float>("total_crossings") + 1.0f
-            );
+            FLAMEGPU->setVariable<float>("total_crossings",
+                FLAMEGPU->getVariable<float>("total_crossings") + 1.0f);
         }
-
-        // Regla provisional para mantener constante la población.
-        if (x > ROAD_LENGTH) {
-            x = 0.0f;
-        }
-
-        FLAMEGPU->setVariable<float>("x", x);
     }
 
+    FLAMEGPU->setVariable<float>("x", x);
+    FLAMEGPU->setVariable<float>("x_centre", x - LENGTH / 2.0f);
+    // Se contabiliza primero; otra capa lo elimina cuando sale la trasera.
+    FLAMEGPU->setVariable<float>("exit_pending", x - LENGTH >= ROAD_LENGTH ? 1.0f : 0.0f);
     return flamegpu::ALIVE;
 }
 """
 
-# Función de agente: actualiza el estado visual del semáforo.
 traffic_light_update = r"""
 FLAMEGPU_AGENT_FUNCTION(traffic_light_update, flamegpu::MessageNone, flamegpu::MessageNone) {
-
-    const int SIGNAL_PERIOD =
-        FLAMEGPU->environment.getProperty<int>("signal_period");
-
+    const unsigned int RED_STEPS = FLAMEGPU->environment.getProperty<unsigned int>("red_steps");
+    const unsigned int GREEN_STEPS = FLAMEGPU->environment.getProperty<unsigned int>("green_steps");
     const unsigned int step = FLAMEGPU->getStepCounter();
+    FLAMEGPU->setVariable<float>("light_state",
+        step % (RED_STEPS + GREEN_STEPS) < RED_STEPS ? 0.0f : 1.0f);
+    return flamegpu::ALIVE;
+}
+"""
 
-    const int signal_phase = (step / SIGNAL_PERIOD) % 2;
-
-    // 0.0 = rojo
-    // 1.0 = verde
-    if (signal_phase == 0) {
-        FLAMEGPU->setVariable<float>("light_state", 0.0f);
-    } else {
-        FLAMEGPU->setVariable<float>("light_state", 1.0f);
+car_remove = r"""
+FLAMEGPU_AGENT_FUNCTION(car_remove, flamegpu::MessageNone, flamegpu::MessageNone) {
+    if (FLAMEGPU->getVariable<float>("exit_pending") > 0.0f) {
+        return flamegpu::DEAD;
     }
-
     return flamegpu::ALIVE;
 }
 """
 
 
-def calculate_spacing(positions):
-    """Comprueba las distancias entre coches consecutivos del único carril."""
-    ordered_positions = sorted(positions)
-    gaps = [
-        right - left
-        for left, right in zip(ordered_positions, ordered_positions[1:])
-    ]
-    minimum_gap = min(gaps) if gaps else None
-    unsafe_pairs = sum(
-        gap < SAFE_DISTANCE - SPACING_TOLERANCE for gap in gaps
+@dataclass
+class RunState:
+    """Contadores que sobreviven a la eliminación de los vehículos."""
+    config: TrafficConfig
+    step: int = 0
+    requested: int = 0
+    admitted: int = 0
+    pending: int = 0
+    exited: int = 0
+    total_crossings: int = 0
+    departed_waiting_s: float = 0.0
+    last_row: dict | None = None
+
+    @property
+    def introduced(self):
+        return self.config.initial_cars + self.admitted
+
+
+def initialise_car(instance, front_m, config):
+    """Misma inicialización para AgentVector y nacimientos desde el host."""
+    values = {
+        "x": front_m, "x_centre": front_m - config.vehicle_length_m / 2,
+        "y": config.lane_y_m, "z": config.vehicle_height_m / 2,
+        "speed": config.max_speed_mps, "waiting_time": 0.0, "stopped": 0.0,
+        "stopped_by_light": 0.0, "stopped_by_car": 0.0,
+        "crossed_this_step": 0.0, "total_crossings": 0.0, "exit_pending": 0.0,
+    }
+    for name, value in values.items():
+        instance.setVariableFloat(name, float(value))
+
+
+class TrafficArrivals(pyflamegpu.HostFunction):
+    """Demanda periódica; las solicitudes sin hueco esperan fuera del tramo."""
+
+    def __init__(self, state):
+        super().__init__()
+        self.state = state
+
+    def run(self, flamegpu):
+        state = self.state
+        config = state.config
+        if config.arrival_steps and state.step % config.arrival_steps == 0:
+            state.requested += 1
+            state.pending += 1
+        if not state.pending:
+            return
+
+        # Nace con la trasera en x=0 y el frontal en la longitud del coche.
+        entry_front = config.vehicle_length_m
+        car_api = flamegpu.agent("Car")
+        # rc4 no admite descargar una población vacía aún sin buffers CUDA.
+        population = car_api.getPopulationData() if car_api.count() else []
+        nearest = min(
+            (instance.getVariableFloat("x") for instance in population),
+            default=None,
+        )
+        if nearest is not None and nearest - entry_front < config.safe_distance_m:
+            return
+
+        new_car = flamegpu.agent("Car").newAgent()
+        initialise_car(new_car, entry_front, config)
+        state.admitted += 1
+        state.pending -= 1
+        # El nacimiento se hace efectivo al terminar esta capa host.
+
+
+def read_vehicle(instance):
+    return VehicleSnapshot(
+        front_m=instance.getVariableFloat("x"),
+        speed_mps=instance.getVariableFloat("speed"),
+        waiting_s=instance.getVariableFloat("waiting_time"),
+        stopped_by_light=bool(instance.getVariableFloat("stopped_by_light")),
+        stopped_by_car=bool(instance.getVariableFloat("stopped_by_car")),
+        crossed_this_step=bool(instance.getVariableFloat("crossed_this_step")),
     )
-    return minimum_gap, unsafe_pairs
+
+
+def decimal_text(value):
+    return "" if value is None else f"{value:.6f}".replace(".", ",")
+
+
+def gpu_float(value):
+    """Valor efectivo de una propiedad float del modelo CUDA."""
+    return struct.unpack("f", struct.pack("f", value))[0]
 
 
 class TrafficMetrics(pyflamegpu.HostFunction):
-    """Calcula, muestra y guarda las métricas después de actualizar los coches."""
+    """Muestra posterior al movimiento y contabilidad anterior a la eliminación."""
 
-    def __init__(self, csv_path: Path):
+    def __init__(self, state, csv_path, quiet=False):
         super().__init__()
-        self.step = 0
-        self.csv_path = csv_path
+        self.state = state
+        self.csv_path = Path(csv_path)
+        self.quiet = quiet
+        # La clasificación host debe usar exactamente la misma línea que GPU.
+        self.metrics_config = replace(state.config, light_x_m=gpu_float(state.config.light_x_m))
 
     def run(self, flamegpu):
-        stopped_cars = flamegpu.agent("Car").sumFloat("stopped")
-        stopped_by_light = flamegpu.agent("Car").sumFloat("stopped_by_light")
-        stopped_by_car = flamegpu.agent("Car").sumFloat("stopped_by_car")
-        total_waiting_time = flamegpu.agent("Car").sumFloat("waiting_time")
-        crossed_this_step = flamegpu.agent("Car").sumFloat("crossed_this_step")
-        total_crossings = flamegpu.agent("Car").sumFloat("total_crossings")
+        state = self.state
+        config = self.metrics_config
+        # Diagnóstico de un prototipo pequeño, con transferencias GPU-host.
+        car_api = flamegpu.agent("Car")
+        population = car_api.getPopulationData() if car_api.count() else []
+        active, departing = [], []
+        for instance in population:
+            vehicle = read_vehicle(instance)
+            if instance.getVariableFloat("exit_pending") > 0:
+                departing.append(vehicle)
+            else:
+                active.append(vehicle)
 
-        average_waiting_time = total_waiting_time / CAR_COUNT
-        queue_length = stopped_cars
+        all_vehicles = active + departing
+        crossed = sum(vehicle.crossed_this_step for vehicle in all_vehicles)
+        state.total_crossings += crossed
+        state.exited += len(departing)
+        state.departed_waiting_s += sum(vehicle.waiting_s for vehicle in departing)
+        active_waiting = sum(vehicle.waiting_s for vehicle in active)
+        total_waiting = state.departed_waiting_s + active_waiting
 
-        # Diagnóstico para el prototipo de 20 coches. Leer posiciones en
-        # el host añade transferencias; no es una prueba de rendimiento.
-        population = flamegpu.agent("Car").getPopulationData()
-        minimum_gap, unsafe_pairs = calculate_spacing(
-            instance.getVariableFloat("x") for instance in population
+        # Comprobar también los que abandonan durante este paso.
+        min_front, min_free, unsafe_pairs = calculate_spacing(
+            (vehicle.front_m for vehicle in all_vehicles), config
         )
-        gap_text = f"{minimum_gap:.6f}" if minimum_gap is not None else ""
+        queue_cars, queue_m = calculate_queue(active, config)
+        stopped = sum(vehicle.speed_mps == 0 for vehicle in active)
+        by_light = sum(vehicle.stopped_by_light for vehicle in active)
+        by_car = sum(vehicle.stopped_by_car for vehicle in active)
+        red_crossings = crossed if phase_for_step(state.step, config) == "ROJO" else 0
+        first = max(
+            (vehicle.front_m for vehicle in active if vehicle.front_m <= config.light_x_m),
+            default=None,
+        )
+        row = dict(zip(CSV_COLUMNS, [
+            state.step, phase_for_step(state.step, config), stopped, by_light, by_car,
+            stopped, crossed, state.total_crossings, total_waiting,
+            total_waiting / state.introduced if state.introduced else 0.0,
+            min_front, unsafe_pairs, red_crossings, first,
+            (state.step + 1) * config.time_step_s, len(active), queue_cars, queue_m,
+            min_free, state.requested, state.admitted, state.pending, len(departing),
+            state.exited, state.introduced,
+            active_waiting / len(active) if active else None,
+            state.departed_waiting_s / state.exited if state.exited else None,
+        ]))
+        state.last_row = row
+        with self.csv_path.open("a", newline="", encoding="utf-8") as file:
+            writer = csv.DictWriter(file, fieldnames=CSV_COLUMNS, delimiter=";")
+            writer.writerow({
+                name: decimal_text(value) if isinstance(value, float) or value is None else value
+                for name, value in row.items()
+            })
 
-        phase = (self.step // SIGNAL_PERIOD) % 2
-        light_state = "ROJO" if phase == 0 else "VERDE"
-
-        with self.csv_path.open(mode="a", newline="", encoding="utf-8") as file:
-            writer = csv.writer(file, delimiter=";")
-            writer.writerow([
-                self.step,
-                light_state,
-                int(stopped_cars),
-                int(stopped_by_light),
-                int(stopped_by_car),
-                int(queue_length),
-                int(crossed_this_step),
-                int(total_crossings),
-                int(total_waiting_time),
-                f"{average_waiting_time:.2f}".replace(".", ","),
-                gap_text.replace(".", ","),
-                unsafe_pairs,
-            ])
-
-        if self.step % 5 == 0:
+        if not self.quiet and state.step % 10 == 0:
             print(
-                f"Paso {self.step}: "
-                f"semáforo = {light_state}, "
-                f"parados = {stopped_cars:.0f}, "
-                f"por semáforo = {stopped_by_light:.0f}, "
-                f"por coche delante = {stopped_by_car:.0f}, "
-                f"cola aprox = {queue_length:.0f}, "
-                f"cruzan ahora = {crossed_this_step:.0f}, "
-                f"cruces totales = {total_crossings:.0f}, "
-                f"espera media = {average_waiting_time:.2f}, "
-                f"distancia mínima = {gap_text or 'no aplicable'}, "
-                f"pares inseguros = {unsafe_pairs}"
+                f"Paso {state.step} (t={row['tiempo_s']:g} s): "
+                f"{row['estado_semaforo']}, presentes={len(active)}, "
+                f"cola={queue_cars} coches/{queue_m:g} m, "
+                f"cruces={state.total_crossings}, salidas={state.exited}, "
+                f"pendientes={state.pending}"
             )
 
+        errors = []
+        if red_crossings:
+            errors.append(f"{red_crossings} cruces en rojo")
         if unsafe_pairs:
-            raise RuntimeError(
-                f"Paso {self.step}: hay {unsafe_pairs} pares consecutivos "
-                f"con separación insuficiente (mínima: {gap_text}). "
-                "Revisa el movimiento o el retorno provisional al inicio."
-            )
-
-        self.step += 1
-
-
-def create_csv_file(csv_path: Path) -> None:
-    """Crea un CSV nuevo con la cabecera, sin tocar el último resultado válido."""
-    with csv_path.open(mode="w", newline="", encoding="utf-8") as file:
-        writer = csv.writer(file, delimiter=";")
-        writer.writerow([
-            "paso",
-            "estado_semaforo",
-            "coches_parados",
-            "parados_por_semaforo",
-            "parados_por_coche_delante",
-            "cola_aproximada",
-            "coches_cruzan_este_paso",
-            "cruces_totales",
-            "espera_total",
-            "espera_media",
-            "distancia_minima",
-            "pares_consecutivos_inseguros",
-        ])
+            errors.append(f"{unsafe_pairs} pares inseguros; distancia frontal mínima {min_front} m")
+        if len(active) != state.introduced - state.exited:
+            errors.append("no se conserva el balance de población")
+        if state.pending != state.requested - state.admitted:
+            errors.append("no se conserva el balance de solicitudes de entrada")
+        if stopped != by_light + by_car:
+            errors.append("los motivos de parada no coinciden con los detenidos")
+        if errors:
+            raise RuntimeError(f"Paso {state.step}: " + "; ".join(errors))
+        state.step += 1
 
 
-def build_model():
-    """Construye la descripción del modelo y devuelve el modelo y el agente Car."""
+def create_csv_file(csv_path):
+    with Path(csv_path).open("w", newline="", encoding="utf-8") as file:
+        csv.writer(file, delimiter=";").writerow(CSV_COLUMNS)
+
+
+def build_model(config, state, csv_path, quiet=False):
     model = pyflamegpu.ModelDescription("traffic_model")
-
     env = model.Environment()
-    env.newPropertyFloat("road_length", ROAD_LENGTH)
-    env.newPropertyFloat("max_speed", MAX_SPEED)
-    env.newPropertyFloat("safe_distance", SAFE_DISTANCE)
-    env.newPropertyFloat("light_x", LIGHT_X)
-    env.newPropertyFloat("stop_distance", STOP_DISTANCE)
-    env.newPropertyInt("signal_period", SIGNAL_PERIOD)
+    for name, value in {
+        "time_step_s": config.time_step_s, "road_length_m": config.road_length_m,
+        "max_speed_mps": config.max_speed_mps, "safe_distance_m": config.safe_distance_m,
+        "vehicle_length_m": config.vehicle_length_m, "light_x_m": config.light_x_m,
+    }.items():
+        env.newPropertyFloat(name, float(value))
+    env.newPropertyUInt("red_steps", config.red_steps)
+    env.newPropertyUInt("green_steps", config.green_steps)
 
     message = model.newMessageSpatial2D("car_location")
     message.newVariableID("id")
-    message.setRadius(MESSAGE_RADIUS)
+    message.setRadius(config.message_radius_m)
     message.setMin(0.0, 0.0)
-    message.setMax(ROAD_LENGTH, ROAD_WIDTH)
+    # La trasera debe abandonar el tramo antes de eliminar el agente.
+    message.setMax(
+        config.road_length_m + config.vehicle_length_m + config.max_move_m + 1.0,
+        config.domain_width_m,
+    )
 
     car = model.newAgent("Car")
-    car.newVariableFloat("x")
-    car.newVariableFloat("y")
-    car.newVariableFloat("speed")
-    car.newVariableFloat("waiting_time")
-    car.newVariableFloat("stopped")
-    car.newVariableFloat("stopped_by_light")
-    car.newVariableFloat("stopped_by_car")
-    car.newVariableFloat("crossed_this_step")
-    car.newVariableFloat("total_crossings")
-
-
-        # ---------------------------------------------------------
-    # AGENTE VISUAL DEL SEMÁFORO
-    # ---------------------------------------------------------
+    for name in (
+        "x", "x_centre", "y", "z", "speed", "waiting_time", "stopped",
+        "stopped_by_light", "stopped_by_car", "crossed_this_step",
+        "total_crossings", "exit_pending",
+    ):
+        car.newVariableFloat(name)
 
     traffic_light = model.newAgent("TrafficLight")
-
-    # Posición del semáforo en el visor.
-    traffic_light.newVariableFloat("x")
-    traffic_light.newVariableFloat("y")
-    traffic_light.newVariableFloat("z")
-
-    # 0.0 = rojo
-    # 1.0 = verde
-    traffic_light.newVariableFloat("light_state")
-
-    # Función que actualiza su estado en cada paso.
-    light_fn = traffic_light.newRTCFunction(
-        "traffic_light_update",
-        traffic_light_update
-    )
+    for name in ("x", "y", "z", "light_state"):
+        traffic_light.newVariableFloat(name)
 
     output_fn = car.newRTCFunction("car_output_position", car_output_position)
     output_fn.setMessageOutput("car_location")
-
     move_fn = car.newRTCFunction("car_move", car_move)
     move_fn.setMessageInput("car_location")
+    light_fn = traffic_light.newRTCFunction("traffic_light_update", traffic_light_update)
+    remove_fn = car.newRTCFunction("car_remove", car_remove)
+    remove_fn.setAllowAgentDeath(True)
 
-    layer_output = model.newLayer()
-    layer_output.addAgentFunction(output_fn)
-
-    layer_move = model.newLayer()
-    layer_move.addAgentFunction(move_fn)
-
-    # Actualización del semáforo visual.
-    layer_light = model.newLayer()
-    layer_light.addAgentFunction(light_fn)
-
-    layer_metrics = model.newLayer()
-    layer_metrics.addHostFunction(TrafficMetrics(TEMP_CSV))
-
+    # Los nacimientos host solo se incorporan al terminar su capa.
+    model.newLayer().addHostFunction(TrafficArrivals(state))
+    model.newLayer().addAgentFunction(output_fn)
+    model.newLayer().addAgentFunction(move_fn)
+    model.newLayer().addAgentFunction(light_fn)
+    # Se guardan eventos y espera antes de que desaparezcan los agentes.
+    model.newLayer().addHostFunction(TrafficMetrics(state, csv_path, quiet))
+    model.newLayer().addAgentFunction(remove_fn)
     return model, car, traffic_light
 
 
-def create_initial_population(car):
-    """Crea coches distintos con una separación inicial válida."""
-    if CAR_COUNT < 1:
-        raise ValueError("CAR_COUNT debe ser al menos 1.")
-
-    if MAX_SPEED <= 0.0 or SAFE_DISTANCE <= 0.0:
-        raise ValueError("MAX_SPEED y SAFE_DISTANCE deben ser positivos.")
-
-    if INITIAL_SPACING < SAFE_DISTANCE:
-        raise ValueError(
-            "INITIAL_SPACING debe ser al menos igual a SAFE_DISTANCE."
-        )
-
-    last_x = INITIAL_X + (CAR_COUNT - 1) * INITIAL_SPACING
-    if INITIAL_X < 0.0 or last_x >= ROAD_LENGTH:
-        raise ValueError(
-            "La población inicial no cabe en la carretera: "
-            "reduce CAR_COUNT o aumenta ROAD_LENGTH."
-        )
-
-    population = pyflamegpu.AgentVector(car, CAR_COUNT)
-
-    for i, instance in enumerate(population):
-        x = INITIAL_X + i * INITIAL_SPACING
-
-        instance.setVariableFloat("x", x)
-        instance.setVariableFloat("y", LANE_Y)
-        instance.setVariableFloat("speed", MAX_SPEED)
-        instance.setVariableFloat("waiting_time", 0.0)
-        instance.setVariableFloat("stopped", 0.0)
-        instance.setVariableFloat("stopped_by_light", 0.0)
-        instance.setVariableFloat("stopped_by_car", 0.0)
-        instance.setVariableFloat("crossed_this_step", 0.0)
-        instance.setVariableFloat("total_crossings", 0.0)
-
+def create_initial_population(car, config, positions=None):
+    if positions is None:
+        positions = [
+            config.initial_x_m + index * config.initial_spacing_m
+            for index in range(config.initial_cars)
+        ]
+    positions = list(positions)
+    if len(positions) != config.initial_cars:
+        raise ValueError("La población proporcionada no coincide con initial_cars.")
+    if any(
+        position < config.vehicle_length_m or position > config.road_length_m
+        for position in positions
+    ):
+        raise ValueError("Los coches iniciales deben caber completamente en la carretera.")
+    if calculate_spacing(positions, config)[2]:
+        raise ValueError("La población inicial no respeta el hueco libre mínimo.")
+    population = pyflamegpu.AgentVector(car, len(positions))
+    for instance, front in zip(population, positions):
+        initialise_car(instance, front, config)
     return population
 
 
-def create_traffic_light_population(traffic_light):
-    """Crea un único semáforo para la representación visual."""
-
+def create_traffic_light_population(traffic_light, config):
     population = pyflamegpu.AgentVector(traffic_light, 1)
-
-    for light in population:
-
-        # Lo situamos justo en la posición x del semáforo,
-        # ligeramente por encima de la carretera.
-        light.setVariableFloat("x", LIGHT_X)
-        light.setVariableFloat("y", LANE_Y + 6.0)
-        light.setVariableFloat("z", 0.0)
-
-        # La simulación comienza en rojo.
-        light.setVariableFloat("light_state", 0.0)
-
+    light = population[0]
+    for name, value in {
+        "x": config.light_x_m,
+        "y": config.lane_y_m + config.lane_width_m / 2 + 3.0,
+        "z": 1.0, "light_state": 0.0,
+    }.items():
+        light.setVariableFloat(name, float(value))
     return population
 
 
-def main() -> None:
+def configure_visualisation(simulation, config, view_mode="detail"):
+    visualisation = simulation.getVisualisation()
+    visualisation.setWindowTitle("TFG - carretera con unidades, cola y entradas/salidas")
+    window_width = 1280
+    visualisation.setWindowDimensions(window_width, 720)
+    visualisation.setClearColor(0.035, 0.04, 0.05)
+    if view_mode == "overview":
+        visible_width_m = config.road_length_m * 1.1
+        camera_x = config.road_length_m / 2
+    else:
+        visible_width_m = min(180.0, config.road_length_m * 1.1)
+        if visible_width_m >= config.road_length_m:
+            camera_x = config.road_length_m / 2
+        else:
+            # Más espacio aguas arriba de la línea para observar la cola.
+            camera_x = max(visible_width_m / 2, min(
+                config.road_length_m - visible_width_m / 2,
+                config.light_x_m - 0.2 * visible_width_m,
+            ))
+    # En ortográfica el zoom expresa metros visibles por píxel.
+    visualisation.setOrthographic(True)
+    visualisation.setOrthographicZoomModifier(visible_width_m / window_width)
+    visualisation.setInitialCameraTarget(camera_x, config.lane_y_m, 0.0)
+    visualisation.setInitialCameraLocation(camera_x, config.lane_y_m, 150.0)
+    visualisation.setInitialCameraRoll(0.0)
+    visualisation.setCameraSpeed(0.05)
+    visualisation.setFPSVisible(False)
+    visualisation.setSimulationSpeed(10)  # Solo velocidad de demostración.
+
+    car_vis = visualisation.addAgent("Car")
+    car_vis.setModel(pyflamegpu.CUBE)
+    car_vis.setXVariable("x_centre")
+    car_vis.setModelScale(
+        config.vehicle_length_m, config.vehicle_width_m, config.vehicle_height_m
+    )
+    car_vis.setColor(pyflamegpu.HSVInterpolation.REDGREEN(
+        "speed", 0.0, config.max_speed_mps
+    ))
+    light_vis = visualisation.addAgent("TrafficLight")
+    light_vis.setModel(pyflamegpu.SPHERE)
+    light_vis.setModelScale(2.0)
+    light_vis.setColor(pyflamegpu.HSVInterpolation.REDGREEN("light_state", 0.0, 1.0))
+
+    # Banda de asfalto dibujada con segmentos densos, sin cambiar la geometría
+    # física ni requerir texturas o modelos externos.
+    asphalt = visualisation.newLineSketch(0.20, 0.22, 0.26, 1.0)
+    stripes = max(1, int(config.lane_width_m / 0.08) + 1)
+    for stripe in range(stripes + 1):
+        y = config.lane_y_m - config.lane_width_m / 2 + stripe * config.lane_width_m / stripes
+        asphalt.addVertex(0.0, y, -0.02)
+        asphalt.addVertex(config.road_length_m, y, -0.02)
+    for offset in (-config.lane_width_m / 2, config.lane_width_m / 2):
+        edge = visualisation.newPolylineSketch(1.0, 1.0, 1.0, 0.8)
+        edge.addVertex(0.0, config.lane_y_m + offset, 0.0)
+        edge.addVertex(config.road_length_m, config.lane_y_m + offset, 0.0)
+    stop_line = visualisation.newPolylineSketch(1.0, 1.0, 0.0, 1.0)
+    for offset in (-config.lane_width_m / 2, config.lane_width_m / 2):
+        stop_line.addVertex(config.light_x_m, config.lane_y_m + offset, 0.02)
+    visualisation.activate()
+    return visualisation
+
+
+def run_simulation(
+    config=None, *, steps=200, seed=12, output_csv=OUTPUT_CSV,
+    no_visualisation=False, quiet=False, initial_positions=None,
+    view_mode="detail",
+):
+    """Ejecuta GPU; solo publica el CSV y su configuración tras completarse."""
+    config = config or TrafficConfig()
+    config.validate()
+    if isinstance(steps, bool) or not isinstance(steps, int) or steps < 1:
+        raise ValueError("steps debe ser un entero positivo.")
+    if isinstance(seed, bool) or not isinstance(seed, int) or seed < 0:
+        raise ValueError("seed debe ser un entero no negativo.")
+    if view_mode not in ("detail", "overview"):
+        raise ValueError("view_mode debe ser detail u overview.")
+    output_csv = Path(output_csv).resolve()
+    output_csv.parent.mkdir(parents=True, exist_ok=True)
+    temporary = output_csv.with_name(output_csv.stem + ".tmp.csv")
+    partial = output_csv.with_name(output_csv.stem + "_partial.csv")
+    metadata_path = output_csv.with_suffix(".metadata.json")
+    metadata_temp = output_csv.with_suffix(".metadata.tmp.json")
+    state = RunState(config)
     simulation = None
     visualisation = None
-
-    # El CSV definitivo no se toca hasta que la simulación haya terminado bien.
-    TEMP_CSV.unlink(missing_ok=True)
-    PARTIAL_CSV.unlink(missing_ok=True)
-
+    temporary.unlink(missing_ok=True)
+    metadata_temp.unlink(missing_ok=True)
     try:
-        model, car, traffic_light = build_model()
-
+        model, car, traffic_light = build_model(config, state, temporary, quiet)
         simulation = pyflamegpu.CUDASimulation(model)
-        simulation.initialise(sys.argv)
+        simulation.initialise(["traffic_model.py", "-s", str(steps), "-r", str(seed)])
+        simulation.setPopulationData(create_initial_population(car, config, initial_positions))
+        simulation.setPopulationData(create_traffic_light_population(traffic_light, config))
+        if pyflamegpu.VISUALISATION and not no_visualisation:
+            visualisation = configure_visualisation(simulation, config, view_mode)
 
-        population = create_initial_population(car)
-        simulation.setPopulationData(population)
-
-        # Creo e incorporo el semáforo visual.
-        light_population = create_traffic_light_population(traffic_light)
-        simulation.setPopulationData(light_population)
-
-        # ---------------------------------------------------------
-        # VISUALIZACIÓN DEL MODELO DE TRÁFICO
-        # ---------------------------------------------------------
-        if pyflamegpu.VISUALISATION:
-
-            # Obtengo el visor asociado a esta simulación.
-            visualisation = simulation.getVisualisation()
-
-            # Título y dimensiones de la ventana.
-            visualisation.setWindowTitle("Traffic model - distancia de seguridad")
-            visualisation.setWindowDimensions(1280, 720)
-
-            # Fondo oscuro.
-            visualisation.setClearColor(0.05, 0.05, 0.05)
-
-            # -----------------------------------------------------
-            # CÁMARA
-            # -----------------------------------------------------
-
-            # La cámara mira al centro de la carretera.
-            visualisation.setInitialCameraTarget(
-                ROAD_LENGTH / 2.0,
-                LANE_Y,
-                0.0
-            )
-
-            # Situamos la cámara encima de la carretera.
-            visualisation.setInitialCameraLocation(
-                ROAD_LENGTH / 2.0,
-                LANE_Y,
-                120.0
-            )
-
-            visualisation.setCameraSpeed(0.05)
-
-            # Limito la simulación para poder observar el movimiento.
-            visualisation.setSimulationSpeed(10)
-
-            # -----------------------------------------------------
-            # COCHES
-            # -----------------------------------------------------
-
-            # Incorporo los agentes Car al visor.
-            car_vis = visualisation.addAgent("Car")
-
-            # Cada coche se representa mediante un cubo.
-            car_vis.setModel(pyflamegpu.CUBE)
-
-            # Lo deformo para que tenga una forma rectangular.
-            car_vis.setModelScale(1.2, 0.6, 0.3)
-
-            # Rojo detenido, verde a MAX_SPEED; los avances parciales
-            # utilizan colores intermedios.
-            car_vis.setColor(
-                pyflamegpu.HSVInterpolation.REDGREEN(
-                    "speed",
-                    0.0,
-                    MAX_SPEED
-                )
-            )
-            # -----------------------------------------------------
-            # SEMÁFORO VISUAL
-            # -----------------------------------------------------
-
-            light_vis = visualisation.addAgent("TrafficLight")
-
-            # Representamos el semáforo mediante una esfera.
-            light_vis.setModel(pyflamegpu.SPHERE)
-
-            # Lo hacemos suficientemente grande para verlo.
-            light_vis.setModelScale(2.0)
-
-            # state = 0.0 -> rojo
-            # state = 1.0 -> verde
-            light_vis.setColor(
-                pyflamegpu.HSVInterpolation.REDGREEN(
-                    "light_state",
-                    0.0,
-                    1.0
-                )
-            )
-
-
-
-
-            # -----------------------------------------------------
-            # CARRETERA
-            # -----------------------------------------------------
-
-            # Línea superior de la carretera.
-            road_upper = visualisation.newPolylineSketch(
-                1.0, 1.0, 1.0, 0.8
-            )
-
-            road_upper.addVertex(
-                0.0,
-                LANE_Y + 3.0,
-                0.0
-            )
-
-            road_upper.addVertex(
-                ROAD_LENGTH,
-                LANE_Y + 3.0,
-                0.0
-            )
-
-            # Línea inferior de la carretera.
-            road_lower = visualisation.newPolylineSketch(
-                1.0, 1.0, 1.0, 0.8
-            )
-
-            road_lower.addVertex(
-                0.0,
-                LANE_Y - 3.0,
-                0.0
-            )
-
-            road_lower.addVertex(
-                ROAD_LENGTH,
-                LANE_Y - 3.0,
-                0.0
-            )
-
-            # -----------------------------------------------------
-            # LÍNEA DEL SEMÁFORO
-            # -----------------------------------------------------
-
-            # Por ahora dibujo una línea amarilla que indica
-            # la posición del semáforo.
-            stop_line = visualisation.newPolylineSketch(
-                1.0, 1.0, 0.0, 1.0
-            )
-
-            stop_line.addVertex(
-                LIGHT_X,
-                LANE_Y - 3.0,
-                0.0
-            )
-
-            stop_line.addVertex(
-                LIGHT_X,
-                LANE_Y + 3.0,
-                0.0
-            )
-
-            # Abro la ventana del visor.
-            visualisation.activate()
-
-        # ---------------------------------------------------------
-        # EJECUCIÓN NORMAL DE LA SIMULACIÓN
-        # ---------------------------------------------------------
-
-        create_csv_file(TEMP_CSV)
-
-        print("Iniciando simulación de tráfico...")
-
+        create_csv_file(temporary)
         simulation.simulate()
-
-        # Solo sustituyo el CSV definitivo si la ejecución
-        # ha terminado correctamente.
-        TEMP_CSV.replace(OUTPUT_CSV)
-
-        print("Simulación terminada correctamente.")
-        print(f"Archivo CSV creado: {OUTPUT_CSV}")
-
-        # Mantengo el visor abierto una vez finalizada la simulación.
+        # Se confirma el balance también después de aplicar la capa de muerte.
+        final_population = pyflamegpu.AgentVector(car)
+        simulation.getPopulationData(final_population)
+        if len(final_population) != state.introduced - state.exited:
+            raise RuntimeError("La eliminación GPU no coincide con las salidas contabilizadas.")
+        metadata = {
+            "model": "carretera_fisica_poblacion_dinamica",
+            "config": asdict(config), "steps": steps, "seed": seed,
+            "python_version": sys.version.split()[0],
+            "pyflamegpu_version": getattr(pyflamegpu, "__version__", "consultar requirements.txt"),
+            "backend": "FLAME GPU 2 CUDA", "front_coordinate": "x",
+            "effective_light_x_m": gpu_float(config.light_x_m),
+            "visualisation_view": view_mode,
+            "units": {"position": "m", "speed": "m/s", "waiting_time": "s"},
+            "assumptions": "Parámetros provisionales, sin calibración con datos reales.",
+        }
+        metadata_temp.write_text(
+            json.dumps(metadata, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+        )
+        temporary.replace(output_csv)
+        metadata_temp.replace(metadata_path)
+        if not quiet:
+            print(f"Simulación terminada correctamente. CSV: {output_csv}")
         if visualisation is not None:
             visualisation.join()
-
+        return state
     except Exception:
-
-        # Si había datos parciales, los conservo.
-        if TEMP_CSV.exists():
-            TEMP_CSV.replace(PARTIAL_CSV)
-            print(f"Se han conservado datos parciales en: {PARTIAL_CSV}")
-
+        if temporary.exists():
+            temporary.replace(partial)
+            if not quiet:
+                print(f"Datos diagnósticos conservados en: {partial}")
         raise
-
     finally:
-
+        metadata_temp.unlink(missing_ok=True)
         if simulation is not None:
             pyflamegpu.cleanup()
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("-s", "--steps", type=int, default=200)
+    parser.add_argument("-r", "--seed", type=int, default=12)
+    parser.add_argument("--output", type=Path, default=OUTPUT_CSV)
+    parser.add_argument("--initial-cars", type=int, default=20)
+    parser.add_argument("--arrival-interval", type=float, default=6.0,
+                        help="Segundos entre solicitudes; 0 desactiva las llegadas.")
+    parser.add_argument("--time-step", type=float, default=1.0, help="Segundos por paso.")
+    parser.add_argument("--red-seconds", type=float, default=10.0)
+    parser.add_argument("--green-seconds", type=float, default=10.0)
+    parser.add_argument("--no-visualisation", action="store_true")
+    parser.add_argument("--view", choices=("detail", "overview"), default="detail",
+                        help="Encuadre del visor: detalle del semáforo o carretera completa.")
+    parser.add_argument("--quiet", action="store_true")
+    args = parser.parse_args()
+    try:
+        config = TrafficConfig(
+            initial_cars=args.initial_cars, arrival_interval_s=args.arrival_interval,
+            time_step_s=args.time_step, red_duration_s=args.red_seconds,
+            green_duration_s=args.green_seconds,
+        )
+        run_simulation(
+            config, steps=args.steps, seed=args.seed, output_csv=args.output,
+            no_visualisation=args.no_visualisation, quiet=args.quiet,
+            view_mode=args.view,
+        )
+    except ValueError as error:
+        parser.error(str(error))
 
 
 if __name__ == "__main__":

@@ -23,3 +23,6 @@ Thumbs.db
 traffic_metrics*.tmp.csv
 traffic_metrics*_partial.csv
 venv_vis/
+
+# Herramientas portátiles locales para comprobaciones (no son parte del modelo)
+.tools/

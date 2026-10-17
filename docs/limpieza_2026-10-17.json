@@ -1,0 +1,902 @@
+{
+  "date": "2026-10-17",
+  "scope": "Project organisation only; no commits, pushes or C++ migration.",
+  "moved": [
+    {
+      "from": "model.py",
+      "to": "examples/model.py",
+      "bytes": 7322,
+      "sha256": "ADA647B23A1D8514BC3DEBA0E7F1146E4E8423138FF3C49A1E9714B0E791FE3B"
+    },
+    {
+      "from": "model_original.py",
+      "to": "examples/model_original.py",
+      "bytes": 7321,
+      "sha256": "C6E55C0FF0A2C336F6BDEBABBDB41DAD293AFBC964CC8F0E66C4CD20F2C8E9C9"
+    },
+    {
+      "from": "model_vis.py",
+      "to": "examples/model_vis.py",
+      "bytes": 8365,
+      "sha256": "1455A131DB2A7B7207C23BC2D4660A2DA6F2442267CE4E8FBE851E364587DC5B"
+    },
+    {
+      "from": "benchmark_model.py",
+      "to": "examples/benchmark_model.py",
+      "bytes": 7327,
+      "sha256": "6329F8E2F52C8396EB971A85EE3C637D49FFCF09A812F784A127BE705FA0D456"
+    },
+    {
+      "from": "traffic_metrics_v05.csv",
+      "to": "historico/traffic_metrics_v05.csv",
+      "bytes": 7755,
+      "sha256": "2B04CCC2B088C68C0F930DAD1F576CA2F3B9D7FE04CEAAE8B8E819C4005F2B9B"
+    },
+    {
+      "from": "traffic_metrics_v07.csv",
+      "to": "historico/traffic_metrics_v07.csv",
+      "bytes": 756,
+      "sha256": "21B98D91B369C4A311A3D8EE418CC5D3E302719BC7A8F19788B6AE8D2782E040"
+    },
+    {
+      "from": "traffic_metrics_v08.csv",
+      "to": "historico/traffic_metrics_v08.csv",
+      "bytes": 1033,
+      "sha256": "9D5DCA435F9879921584445E5C5D1B82031761BBF8E58DBB365516AA10FEDEAC"
+    },
+    {
+      "from": "graficas_v05/cola_aproximada.png",
+      "to": "historico/graficas_v05/cola_aproximada.png",
+      "bytes": 74833,
+      "sha256": "C926602DE116E2B0E9EBB5DC63338EB916E44D0EF0880A9907E6C59B32B93F33"
+    },
+    {
+      "from": "graficas_v05/cruces_totales.png",
+      "to": "historico/graficas_v05/cruces_totales.png",
+      "bytes": 55768,
+      "sha256": "DE58FE7EF5ECD14B527F29012A4832BFD8C3F73C84AFCDFC0F29EF4A5A046B44"
+    },
+    {
+      "from": "graficas_v05/espera_media.png",
+      "to": "historico/graficas_v05/espera_media.png",
+      "bytes": 61398,
+      "sha256": "A6D862E3B8BDCD8C06C01C4C96042D3B0BE4071E654492100ED671D287D86CA5"
+    },
+    {
+      "from": "graficas_v05/motivos_parada.png",
+      "to": "historico/graficas_v05/motivos_parada.png",
+      "bytes": 84335,
+      "sha256": "123714D1CF516B9229E9F77AF42668F6216BEA3DDCF8538C91C7F4CFBF23E231"
+    },
+    {
+      "from": "graficas_v05/parados_y_cola.png",
+      "to": "historico/graficas_v05/parados_y_cola.png",
+      "bytes": 99877,
+      "sha256": "0494C95F84A21628AAB380820CD8D6104F99082C4852AA9BECCEB707F36FDF03"
+    }
+  ],
+  "deleted": [
+    {
+      "path": "traffic_metrics_v06.csv",
+      "directory": false,
+      "reason": "Byte-identical duplicate of traffic_metrics_v05.csv.",
+      "files": [
+        {
+          "path": "traffic_metrics_v06.csv",
+          "bytes": 7755,
+          "sha256": "2B04CCC2B088C68C0F930DAD1F576CA2F3B9D7FE04CEAAE8B8E819C4005F2B9B"
+        }
+      ]
+    },
+    {
+      "path": "step.json",
+      "directory": false,
+      "reason": "Unreferenced minimal Circles diagnostic log.",
+      "files": [
+        {
+          "path": "step.json",
+          "bytes": 70,
+          "sha256": "BF5C72A8B59BA62A3FEC4F8BF535543331F02D1D729B6EC479B9CD26B5163842"
+        }
+      ]
+    },
+    {
+      "path": "exit.json",
+      "directory": false,
+      "reason": "Unreferenced minimal Circles diagnostic log.",
+      "files": [
+        {
+          "path": "exit.json",
+          "bytes": 96,
+          "sha256": "AD85A554DF644A658853088642D67B26DCDB95917A94D9FE679CBCDE2858D9D4"
+        }
+      ]
+    },
+    {
+      "path": "__pycache__",
+      "directory": true,
+      "reason": "Regenerable project bytecode cache.",
+      "files": [
+        {
+          "path": "__pycache__/traffic_core.cpython-312.pyc",
+          "bytes": 13747,
+          "sha256": "279ECFC3A727E0D0B03D6E202EAD81D43E7C9EB0BF41FE3EC5239A9E73BA4F2B"
+        }
+      ]
+    },
+    {
+      "path": "tests/__pycache__",
+      "directory": true,
+      "reason": "Regenerable test bytecode cache.",
+      "files": [
+        {
+          "path": "tests/__pycache__/test_traffic_core.cpython-312.pyc",
+          "bytes": 14450,
+          "sha256": "E4E0C40CB682A84F65AD7814021124645DFFF82A0256F5DA93035D3A66AB06E9"
+        }
+      ]
+    },
+    {
+      "path": ".tools/python312",
+      "directory": true,
+      "reason": "Superseded embedded Python; neither virtual environment uses it.",
+      "files": [
+        {
+          "path": ".tools/python312/libcrypto-3.dll",
+          "bytes": 5231472,
+          "sha256": "CCFFFDDCD3DEFB8D899026298AF9AF43BC186130F8483D77E97C93233D5F27D7"
+        },
+        {
+          "path": ".tools/python312/libffi-8.dll",
+          "bytes": 39696,
+          "sha256": "EFF52743773EB550FCC6CE3EFC37C85724502233B6B002A35496D828BD7B280A"
+        },
+        {
+          "path": ".tools/python312/libssl-3.dll",
+          "bytes": 794992,
+          "sha256": "007142039F04D04E0ED607BDA53DE095E5BC6A8A10D26ECEDDE94EA7D2D7EEFE"
+        },
+        {
+          "path": ".tools/python312/LICENSE.txt",
+          "bytes": 36874,
+          "sha256": "E502C6B880FF58D614901495A9009C136539CD0B1E2A2ABB8FC00B934C203419"
+        },
+        {
+          "path": ".tools/python312/pyexpat.pyd",
+          "bytes": 205304,
+          "sha256": "D615E193D1AFFCDBFE504E90D3621CBDCFF94BF72B79D899126534507FD6D27A"
+        },
+        {
+          "path": ".tools/python312/python.cat",
+          "bytes": 574231,
+          "sha256": "5D85439736AE088D9680B391E2BCA55CA7E9CC5B41A12EBE8E2F554506C7E72E"
+        },
+        {
+          "path": ".tools/python312/python.exe",
+          "bytes": 104952,
+          "sha256": "4D6F5F81A4BCA11191C4C7C6B43632694D0A4CE74E068619D8FDC161D469859A"
+        },
+        {
+          "path": ".tools/python312/python3.dll",
+          "bytes": 70376,
+          "sha256": "FB975A606E7FBF74F64260E3F60C3490B4F74A183C0926FD6ED1AC4C52AC7B1C"
+        },
+        {
+          "path": ".tools/python312/python312.dll",
+          "bytes": 6945272,
+          "sha256": "9A0E3435AAA680D868150F87AB3E388AD2EEBC22F87E036155C7B4EDA8CD2120"
+        },
+        {
+          "path": ".tools/python312/python312.zip",
+          "bytes": 3835482,
+          "sha256": "FB131C0EF7E35CC5250A74C8CD18744BF4115FB8163710711F3758D7DF3D1F88"
+        },
+        {
+          "path": ".tools/python312/python312._pth",
+          "bytes": 68,
+          "sha256": "386FE03853196E218FE96193AAD35E309CC0272738F083E4372826D09D62BBFF"
+        },
+        {
+          "path": ".tools/python312/pythonw.exe",
+          "bytes": 104304,
+          "sha256": "D72294FB338BC2FC8896D25A7395A4DB466425427E1559E77185D5135A830681"
+        },
+        {
+          "path": ".tools/python312/select.pyd",
+          "bytes": 33136,
+          "sha256": "D4D7181B11DB0BD22A6CD5CDA6F8583D1F5C77615FD0A6CA33350619D6E0438A"
+        },
+        {
+          "path": ".tools/python312/sqlite3.dll",
+          "bytes": 1583608,
+          "sha256": "8DAA45684BF6688FCA28D956B2E8942F2FA98F656675CE68E6D61DD869848A7A"
+        },
+        {
+          "path": ".tools/python312/unicodedata.pyd",
+          "bytes": 1140592,
+          "sha256": "208EE1CD3CBAD0828433CA7246B05BE2B1FF5569983D27D296C0B38888585488"
+        },
+        {
+          "path": ".tools/python312/vcruntime140.dll",
+          "bytes": 120400,
+          "sha256": "052AD6A20D375957E82AA6A3C441EA548D89BE0981516CA7EB306E063D5027F4"
+        },
+        {
+          "path": ".tools/python312/vcruntime140_1.dll",
+          "bytes": 49776,
+          "sha256": "6A99BC0128E0C7D6CBBF615FCC26909565E17D4CA3451B97F8987F9C6ACBC6C8"
+        },
+        {
+          "path": ".tools/python312/winsound.pyd",
+          "bytes": 31736,
+          "sha256": "100E8D676777603C7258DAF9B2F23EF001F09F1596D8708DE359326FFF72BDDD"
+        },
+        {
+          "path": ".tools/python312/_asyncio.pyd",
+          "bytes": 74096,
+          "sha256": "C77DE90CAD749087A0C5DC5E19D78D24F6EF44E7E5AC19B8420CFC0CEA62395D"
+        },
+        {
+          "path": ".tools/python312/_bz2.pyd",
+          "bytes": 86896,
+          "sha256": "65F610646D10D5BABEA080E060D244B546EC52C54012E5E937DC72DCC2E2E7BC"
+        },
+        {
+          "path": ".tools/python312/_ctypes.pyd",
+          "bytes": 127480,
+          "sha256": "0E56107A891100535F2DA79D85A5AE65FF1227B4765BD108F8593AC1A1110D81"
+        },
+        {
+          "path": ".tools/python312/_decimal.pyd",
+          "bytes": 262000,
+          "sha256": "AEACFEAD2BEFCC0768063A037BB64BD32109AE09CB144E5F571B04DD7965DB9D"
+        },
+        {
+          "path": ".tools/python312/_elementtree.pyd",
+          "bytes": 135160,
+          "sha256": "5009A9A53C03EF8387443B5CF6CE08E5C3A79727466A0B931C5BBCA915BF89CA"
+        },
+        {
+          "path": ".tools/python312/_hashlib.pyd",
+          "bytes": 68976,
+          "sha256": "03D233DBACE599168EAFFEC823DE6ED7BEEC8C2A4EBFE9B8A3D8E042A59AF3BA"
+        },
+        {
+          "path": ".tools/python312/_lzma.pyd",
+          "bytes": 161136,
+          "sha256": "E3DEECC1F59A3B811C608861DECD84DE1E8DF8BAFD5E2B39188861318C5A38CF"
+        },
+        {
+          "path": ".tools/python312/_msi.pyd",
+          "bytes": 46584,
+          "sha256": "B49332BAE154EBDD8C3D5E7DDFDDE336D9C47F91BA028DC67BAFB2420B3DBB5C"
+        },
+        {
+          "path": ".tools/python312/_multiprocessing.pyd",
+          "bytes": 37368,
+          "sha256": "2C636DF7059CB0DD7E978DD735C7C5C8DDB09CF94754CF9E232296B96C5C545A"
+        },
+        {
+          "path": ".tools/python312/_overlapped.pyd",
+          "bytes": 57336,
+          "sha256": "662126FF80C3A1B4CEDF74074029C12AE4743E6D3B37376E39AC70AACB7D4D3C"
+        },
+        {
+          "path": ".tools/python312/_queue.pyd",
+          "bytes": 33784,
+          "sha256": "48E76E0AD63F6932B4A77B5819F41C1E7595636CA8D9E824F0943A14B8BB5035"
+        },
+        {
+          "path": ".tools/python312/_socket.pyd",
+          "bytes": 85496,
+          "sha256": "3EFA4636CF9E350856F6927D67A4C2564BF9BD2758A00BBF17D3AECE5B60016D"
+        },
+        {
+          "path": ".tools/python312/_sqlite3.pyd",
+          "bytes": 126184,
+          "sha256": "64B51DF2805C58B023A875E8AE3BE7AC7F61EF664F32CA6C90F6315DA47EF0BC"
+        },
+        {
+          "path": ".tools/python312/_ssl.pyd",
+          "bytes": 179432,
+          "sha256": "0BC527D2DBC50009F43B2ED5D5982C4F63F4B647647FFA9EDA612DCDA80F6040"
+        },
+        {
+          "path": ".tools/python312/_uuid.pyd",
+          "bytes": 27128,
+          "sha256": "ACCE4F281D7FFB2DEC0997527FAF25B1DF62AD7BD3032C568DDCF65C90EDC867"
+        },
+        {
+          "path": ".tools/python312/_wmi.pyd",
+          "bytes": 40304,
+          "sha256": "A980F1E7A29842BD946863FC2693FBEB555A9DC0F9E1630DFED9A2FCDEF3ECE2"
+        },
+        {
+          "path": ".tools/python312/_zoneinfo.pyd",
+          "bytes": 49656,
+          "sha256": "76F1439CDA82AB6976DF6BA505C4079444703F6D44D8B0259CE59C0FF4279FB4"
+        }
+      ]
+    },
+    {
+      "path": ".tools/python312.zip",
+      "directory": false,
+      "reason": "Already extracted download; superseded runtime.",
+      "files": [
+        {
+          "path": ".tools/python312.zip",
+          "bytes": 11133606,
+          "sha256": "4ACBED6DD1C744B0376E3B1CF57CE906F9DC9E95E68824584C8099A63025A3C3"
+        }
+      ]
+    },
+    {
+      "path": ".tools/python.3.12.10.nupkg",
+      "directory": false,
+      "reason": "Already extracted download; functional extracted runtime retained.",
+      "files": [
+        {
+          "path": ".tools/python.3.12.10.nupkg",
+          "bytes": 14515433,
+          "sha256": "0EB85C2DFCCCCF1B17352DE4C397F69194035B7D37149EACC16F1147D93DE3B8"
+        }
+      ]
+    },
+    {
+      "path": ".tools/check_visual_startup.py",
+      "directory": false,
+      "reason": "Temporary visualiser diagnostic script.",
+      "files": [
+        {
+          "path": ".tools/check_visual_startup.py",
+          "bytes": 1167,
+          "sha256": "D96397376F76D5E84376ACC767A9CAD0FF8E1D87B884C32A4D8C7F3EFF39EFD9"
+        }
+      ]
+    },
+    {
+      "path": ".tools/visual_checks",
+      "directory": true,
+      "reason": "Completed visualiser checks: transient CSV, metadata and logs.",
+      "files": [
+        {
+          "path": ".tools/visual_checks/detail.csv",
+          "bytes": 1702,
+          "sha256": "5CECFA16B98C05C3C5C3BBA358F68C8D0446D307CD647992379768E3B53615F5"
+        },
+        {
+          "path": ".tools/visual_checks/detail.metadata.json",
+          "bytes": 1026,
+          "sha256": "327951F0AE89D479FDDC6411CEC43B0135DF663A2589302994225CAB2D3AF6DC"
+        },
+        {
+          "path": ".tools/visual_checks/detail.stderr.log",
+          "bytes": 0,
+          "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+        },
+        {
+          "path": ".tools/visual_checks/detail.stdout.log",
+          "bytes": 197,
+          "sha256": "FA77F542A4B2A58762DD1F643A1D616ADD1ADD5C0130CA03D5C634C5BD83178B"
+        },
+        {
+          "path": ".tools/visual_checks/green.csv",
+          "bytes": 2962,
+          "sha256": "89823FFCF5D064CFAF638EA870409FC67A2EDD9F1544B3CDE2D1F1255BEDFC1C"
+        },
+        {
+          "path": ".tools/visual_checks/green.metadata.json",
+          "bytes": 991,
+          "sha256": "678E10756392AE8318924CBE9E487183C630573714616F2605409D839D68D2E6"
+        },
+        {
+          "path": ".tools/visual_checks/green_verified.csv",
+          "bytes": 2962,
+          "sha256": "89823FFCF5D064CFAF638EA870409FC67A2EDD9F1544B3CDE2D1F1255BEDFC1C"
+        },
+        {
+          "path": ".tools/visual_checks/green_verified.metadata.json",
+          "bytes": 991,
+          "sha256": "678E10756392AE8318924CBE9E487183C630573714616F2605409D839D68D2E6"
+        },
+        {
+          "path": ".tools/visual_checks/green_verified.stderr.log",
+          "bytes": 0,
+          "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+        },
+        {
+          "path": ".tools/visual_checks/green_verified.stdout.log",
+          "bytes": 302,
+          "sha256": "583098CA58FD067C5F7117702AADC723FC84614E602B79EA758840A4132C1B59"
+        },
+        {
+          "path": ".tools/visual_checks/green_visible.csv",
+          "bytes": 2962,
+          "sha256": "89823FFCF5D064CFAF638EA870409FC67A2EDD9F1544B3CDE2D1F1255BEDFC1C"
+        },
+        {
+          "path": ".tools/visual_checks/green_visible.metadata.json",
+          "bytes": 991,
+          "sha256": "678E10756392AE8318924CBE9E487183C630573714616F2605409D839D68D2E6"
+        },
+        {
+          "path": ".tools/visual_checks/green_visible.stderr.log",
+          "bytes": 0,
+          "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+        },
+        {
+          "path": ".tools/visual_checks/green_visible.stdout.log",
+          "bytes": 301,
+          "sha256": "671656FC43F087322AB400D2FD33B805AF2B804D715D2C58348B8E29CEFED330"
+        },
+        {
+          "path": ".tools/visual_checks/join.csv",
+          "bytes": 2962,
+          "sha256": "89823FFCF5D064CFAF638EA870409FC67A2EDD9F1544B3CDE2D1F1255BEDFC1C"
+        },
+        {
+          "path": ".tools/visual_checks/join.metadata.json",
+          "bytes": 991,
+          "sha256": "678E10756392AE8318924CBE9E487183C630573714616F2605409D839D68D2E6"
+        },
+        {
+          "path": ".tools/visual_checks/join.stderr.log",
+          "bytes": 0,
+          "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+        },
+        {
+          "path": ".tools/visual_checks/join.stdout.log",
+          "bytes": 404,
+          "sha256": "B1E12D0D93D0A3E2DDA1F114A06F06111606F37B30F979C3FD87AAB37A079E90"
+        },
+        {
+          "path": ".tools/visual_checks/overview.csv",
+          "bytes": 2962,
+          "sha256": "89823FFCF5D064CFAF638EA870409FC67A2EDD9F1544B3CDE2D1F1255BEDFC1C"
+        },
+        {
+          "path": ".tools/visual_checks/overview.metadata.json",
+          "bytes": 1028,
+          "sha256": "964F25A18C9DA1813BC5C223514B2038626ED539804F0C5DC1F6F3791D4F4ABF"
+        },
+        {
+          "path": ".tools/visual_checks/overview.stderr.log",
+          "bytes": 0,
+          "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+        },
+        {
+          "path": ".tools/visual_checks/overview.stdout.log",
+          "bytes": 296,
+          "sha256": "13214C7B589D837BBFE58BC15CF92A26BD93340CADA4AE2A1319650EDD02B469"
+        },
+        {
+          "path": ".tools/visual_checks/red.csv",
+          "bytes": 1702,
+          "sha256": "5CECFA16B98C05C3C5C3BBA358F68C8D0446D307CD647992379768E3B53615F5"
+        },
+        {
+          "path": ".tools/visual_checks/red.metadata.json",
+          "bytes": 991,
+          "sha256": "96B382DB3C36910D719199C2CA28153D1436A2783EC6B2DC705E3C430C5EFDDE"
+        },
+        {
+          "path": ".tools/visual_checks/red_verified.csv",
+          "bytes": 1702,
+          "sha256": "5CECFA16B98C05C3C5C3BBA358F68C8D0446D307CD647992379768E3B53615F5"
+        },
+        {
+          "path": ".tools/visual_checks/red_verified.metadata.json",
+          "bytes": 991,
+          "sha256": "96B382DB3C36910D719199C2CA28153D1436A2783EC6B2DC705E3C430C5EFDDE"
+        },
+        {
+          "path": ".tools/visual_checks/red_verified.stderr.log",
+          "bytes": 0,
+          "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+        },
+        {
+          "path": ".tools/visual_checks/red_verified.stdout.log",
+          "bytes": 203,
+          "sha256": "209322923F559FB6D72460440BCCD1E6C1C724FF0BFC0652AF0B35EF26216217"
+        },
+        {
+          "path": ".tools/visual_checks/red_visible.csv",
+          "bytes": 1702,
+          "sha256": "5CECFA16B98C05C3C5C3BBA358F68C8D0446D307CD647992379768E3B53615F5"
+        },
+        {
+          "path": ".tools/visual_checks/red_visible.metadata.json",
+          "bytes": 991,
+          "sha256": "96B382DB3C36910D719199C2CA28153D1436A2783EC6B2DC705E3C430C5EFDDE"
+        },
+        {
+          "path": ".tools/visual_checks/red_visible.stderr.log",
+          "bytes": 0,
+          "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+        },
+        {
+          "path": ".tools/visual_checks/red_visible.stdout.log",
+          "bytes": 202,
+          "sha256": "790B6A9901C4297B9A3CA80205C83DA504974F7C0404B146664040048268FF28"
+        },
+        {
+          "path": ".tools/visual_checks/startup.csv",
+          "bytes": 2962,
+          "sha256": "89823FFCF5D064CFAF638EA870409FC67A2EDD9F1544B3CDE2D1F1255BEDFC1C"
+        },
+        {
+          "path": ".tools/visual_checks/startup.metadata.json",
+          "bytes": 991,
+          "sha256": "678E10756392AE8318924CBE9E487183C630573714616F2605409D839D68D2E6"
+        },
+        {
+          "path": ".tools/visual_checks/startup.stderr.log",
+          "bytes": 0,
+          "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+        },
+        {
+          "path": ".tools/visual_checks/startup.stdout.log",
+          "bytes": 378,
+          "sha256": "F3B185E9044A268DDCA0E3BDB0DDD6D22115690485A77DADA88A5DCD1DD5840A"
+        }
+      ]
+    }
+  ],
+  "preserved": [
+    {
+      "path": ".gitignore",
+      "bytes": 404,
+      "sha256": "1F47BC7CDF1660E973CE48F5B00274B15734D872EB252A05D8FA78F680F8A7AE"
+    },
+    {
+      "path": "requirements.txt",
+      "bytes": 105,
+      "sha256": "DBBD1C3F6B813DFB378D78DAB7BCE54412934C837FEC993F48D035387E7010AD"
+    },
+    {
+      "path": "traffic_model.py",
+      "bytes": 25547,
+      "sha256": "BC40A67AFC1BF2F4F917B37A56A781C3825AFE0C6B29A340C2ACB9ED7FCDD069"
+    },
+    {
+      "path": "traffic_core.py",
+      "bytes": 9220,
+      "sha256": "ADBC8EAA1D2DDBCB8D1EEECFA27CAF041831B70CFAC3A6B28C9095FAA7BE8480"
+    },
+    {
+      "path": "plot_traffic_metrics.py",
+      "bytes": 8250,
+      "sha256": "6D50C673CB87484F23B075D06636D718B178F16F62A0D25882A46371E07A8668"
+    },
+    {
+      "path": "traffic_metrics.csv",
+      "bytes": 27658,
+      "sha256": "3C53D5F1CF4032E7E733C5E270DCB672BE0D572880D634859A67A0763A51DACF"
+    },
+    {
+      "path": "traffic_metrics.metadata.json",
+      "bytes": 1027,
+      "sha256": "BA74C3B91D9CBBE673EAEE738DD5BAE755782B57BCB4F6A4B866466F99E85E5F"
+    },
+    {
+      "path": "references/traffic_metrics_point_agents.csv",
+      "bytes": 1318,
+      "sha256": "8059394E6947A9D598DA0D1A5106CBCD4AC1ED7C6923586275E444EED6624C5D"
+    },
+    {
+      "path": "venv/pyvenv.cfg",
+      "bytes": 336,
+      "sha256": "DFFA6525AF778AB1715DF96F496557A9CF710F919F349C2A27E46807E9636DFF"
+    },
+    {
+      "path": "venv_vis/pyvenv.cfg",
+      "bytes": 340,
+      "sha256": "1F83711384780201C2C2B3EBBCC102447952941B7242DB4D936B3A4C84830075"
+    },
+    {
+      "path": ".git/index",
+      "bytes": 2392,
+      "sha256": "706AB9CD8FBAEC4846061E596C344F716778068BEF35B366BC11B1E124D659D0"
+    },
+    {
+      "path": ".git/HEAD",
+      "bytes": 21,
+      "sha256": "28D25BF82AF4C0E2B72F50959B2BEB859E3E60B9630A5E8C603DAD4DDB2B6E80"
+    },
+    {
+      "path": "tests/test_plot_traffic_metrics.py",
+      "bytes": 6085,
+      "sha256": "C023D4DB068BA4D86C257BF02871C80D26DB41FA767A425E1DD930959514F7E0"
+    },
+    {
+      "path": "tests/test_traffic_core.py",
+      "bytes": 7945,
+      "sha256": "507893BB331546DD375306FE9C32FF4A85CE477A2FCA221261203C3BA6D823A5"
+    },
+    {
+      "path": "tests/test_traffic_gpu.py",
+      "bytes": 13292,
+      "sha256": "165630D98733F578DECB68C4540129033CDD6FEC8BEB689E8FC1015C8C54B0A3"
+    },
+    {
+      "path": "graficas/cola_aproximada.png",
+      "bytes": 93301,
+      "sha256": "ACEE08701FFFA9CD55D4A52F255B6FB9D1CEE035ACA041CA5C76DA6936AF860D"
+    },
+    {
+      "path": "graficas/cruces_totales.png",
+      "bytes": 56270,
+      "sha256": "12D2286D59852A89019422D40746BAA9F4621C6BB0A167BAFF42ACFEAECD694A"
+    },
+    {
+      "path": "graficas/entradas_salidas.png",
+      "bytes": 118470,
+      "sha256": "305330524EC8E110F50577290FAC50C211CFA3FCF9487BA8B8AE32A749191FEE"
+    },
+    {
+      "path": "graficas/espera_media.png",
+      "bytes": 69202,
+      "sha256": "B4C4DD5E13DC41D50DE6C2E324112A36D7132D1D3B9EE937F203E7ECC4267503"
+    },
+    {
+      "path": "graficas/longitud_cola.png",
+      "bytes": 98278,
+      "sha256": "DC4A8560CC1FC4914064F561AEC2856CFB1CB71F28DBBA532C9ECD9538E34DAB"
+    },
+    {
+      "path": "graficas/motivos_parada.png",
+      "bytes": 101613,
+      "sha256": "DF4CF4F05216618775D97EDDCB8C0561D64CB8198A75E36A7B83F7FD233F66DB"
+    },
+    {
+      "path": "graficas/parados_y_cola.png",
+      "bytes": 126179,
+      "sha256": "348F543161647473E1BFB0E47728437DBF21D6E0E41B394037970BD85D24CB52"
+    }
+  ],
+  "preserved_directories": [
+    "venv",
+    "venv_vis",
+    ".tools/python312-nuget",
+    ".tools/environment-backups",
+    ".git"
+  ],
+  "removed_empty_directories": [
+    "graficas_v05"
+  ],
+  "checks": [
+    "36 existing unittest checks passed: 26 CPU and 10 real CUDA; no skipped tests.",
+    "pip check passed in venv and venv_vis before and after cleanup.",
+    "Both interpreters import pyflamegpu and use .tools/python312-nuget/tools as sys.base_prefix.",
+    "venv VISUALISATION=False; venv_vis VISUALISATION=True. Matplotlib is installed in venv for plotting.",
+    "All moved files and protected files retain their original SHA-256; Git index and HEAD unchanged.",
+    "Four relocated examples parse successfully without executing their large simulations.",
+    "All three archived CSV files load with the current plot reader: {'traffic_metrics_v05.csv': 200, 'traffic_metrics_v07.csv': 20, 'traffic_metrics_v08.csv': 20}",
+    "All relative Markdown links resolve; five existing external documentation/repository URLs opened successfully.",
+    "Only expected files remain in root, examples, historico, graficas, references, tests and .tools."
+  ],
+  "summary": {
+    "moved_files": 12,
+    "deleted_original_files": 79,
+    "deleted_bytes": 48224456,
+    "preserved_file_hashes_verified": 22
+  },
+  "created": [
+    "examples/README.md",
+    "historico/README.md",
+    "docs/limpieza_2026-10-17.md",
+    "docs/limpieza_2026-10-17.json"
+  ],
+  "modified": [
+    "README.md"
+  ],
+  "temporary_helper_removed": ".tools/cleanup_project.ps1",
+  "external_links_checked": [
+    "https://docs.python.org/3.12/using/windows.html#the-nuget-org-packages",
+    "https://docs.flamegpu.com/guide/host-functions/agent-operations.html",
+    "https://docs.flamegpu.com/guide/agent-functions/agent-birth-death.html",
+    "https://docs.flamegpu.com/guide/visualisation/visualising-agents.html",
+    "https://github.com/DaniSantos05/flamegpu_tests"
+  ],
+  "archive_removal": {
+    "date": "2026-10-17",
+    "reason": "User requested removal of archived antecedents unused by the current model.",
+    "directories": [
+      "examples",
+      "historico"
+    ],
+    "deleted_files": [
+      {
+        "path": "examples/benchmark_model.py",
+        "bytes": 7327,
+        "sha256": "6329F8E2F52C8396EB971A85EE3C637D49FFCF09A812F784A127BE705FA0D456"
+      },
+      {
+        "path": "examples/model.py",
+        "bytes": 7322,
+        "sha256": "ADA647B23A1D8514BC3DEBA0E7F1146E4E8423138FF3C49A1E9714B0E791FE3B"
+      },
+      {
+        "path": "examples/model_original.py",
+        "bytes": 7321,
+        "sha256": "C6E55C0FF0A2C336F6BDEBABBDB41DAD293AFBC964CC8F0E66C4CD20F2C8E9C9"
+      },
+      {
+        "path": "examples/model_vis.py",
+        "bytes": 8365,
+        "sha256": "1455A131DB2A7B7207C23BC2D4660A2DA6F2442267CE4E8FBE851E364587DC5B"
+      },
+      {
+        "path": "examples/README.md",
+        "bytes": 974,
+        "sha256": "F86296641A3DD46C857B893E807D0D71D77878A8A74EA4E9A38A7941BF22F0AD"
+      },
+      {
+        "path": "historico/graficas_v05/cola_aproximada.png",
+        "bytes": 74833,
+        "sha256": "C926602DE116E2B0E9EBB5DC63338EB916E44D0EF0880A9907E6C59B32B93F33"
+      },
+      {
+        "path": "historico/graficas_v05/cruces_totales.png",
+        "bytes": 55768,
+        "sha256": "DE58FE7EF5ECD14B527F29012A4832BFD8C3F73C84AFCDFC0F29EF4A5A046B44"
+      },
+      {
+        "path": "historico/graficas_v05/espera_media.png",
+        "bytes": 61398,
+        "sha256": "A6D862E3B8BDCD8C06C01C4C96042D3B0BE4071E654492100ED671D287D86CA5"
+      },
+      {
+        "path": "historico/graficas_v05/motivos_parada.png",
+        "bytes": 84335,
+        "sha256": "123714D1CF516B9229E9F77AF42668F6216BEA3DDCF8538C91C7F4CFBF23E231"
+      },
+      {
+        "path": "historico/graficas_v05/parados_y_cola.png",
+        "bytes": 99877,
+        "sha256": "0494C95F84A21628AAB380820CD8D6104F99082C4852AA9BECCEB707F36FDF03"
+      },
+      {
+        "path": "historico/README.md",
+        "bytes": 1986,
+        "sha256": "4F81F715C38BE395003A4586C9799C90213B50C66DCFBA4E04794BC9846B5065"
+      },
+      {
+        "path": "historico/traffic_metrics_v05.csv",
+        "bytes": 7755,
+        "sha256": "2B04CCC2B088C68C0F930DAD1F576CA2F3B9D7FE04CEAAE8B8E819C4005F2B9B"
+      },
+      {
+        "path": "historico/traffic_metrics_v07.csv",
+        "bytes": 756,
+        "sha256": "21B98D91B369C4A311A3D8EE418CC5D3E302719BC7A8F19788B6AE8D2782E040"
+      },
+      {
+        "path": "historico/traffic_metrics_v08.csv",
+        "bytes": 1033,
+        "sha256": "9D5DCA435F9879921584445E5C5D1B82031761BBF8E58DBB365516AA10FEDEAC"
+      }
+    ],
+    "preserved_before_removal": [
+      {
+        "path": ".gitignore",
+        "bytes": 404,
+        "sha256": "1F47BC7CDF1660E973CE48F5B00274B15734D872EB252A05D8FA78F680F8A7AE"
+      },
+      {
+        "path": "requirements.txt",
+        "bytes": 105,
+        "sha256": "DBBD1C3F6B813DFB378D78DAB7BCE54412934C837FEC993F48D035387E7010AD"
+      },
+      {
+        "path": "traffic_model.py",
+        "bytes": 25547,
+        "sha256": "BC40A67AFC1BF2F4F917B37A56A781C3825AFE0C6B29A340C2ACB9ED7FCDD069"
+      },
+      {
+        "path": "traffic_core.py",
+        "bytes": 9220,
+        "sha256": "ADBC8EAA1D2DDBCB8D1EEECFA27CAF041831B70CFAC3A6B28C9095FAA7BE8480"
+      },
+      {
+        "path": "plot_traffic_metrics.py",
+        "bytes": 8250,
+        "sha256": "6D50C673CB87484F23B075D06636D718B178F16F62A0D25882A46371E07A8668"
+      },
+      {
+        "path": "traffic_metrics.csv",
+        "bytes": 27658,
+        "sha256": "3C53D5F1CF4032E7E733C5E270DCB672BE0D572880D634859A67A0763A51DACF"
+      },
+      {
+        "path": "traffic_metrics.metadata.json",
+        "bytes": 1027,
+        "sha256": "BA74C3B91D9CBBE673EAEE738DD5BAE755782B57BCB4F6A4B866466F99E85E5F"
+      },
+      {
+        "path": "references/traffic_metrics_point_agents.csv",
+        "bytes": 1318,
+        "sha256": "8059394E6947A9D598DA0D1A5106CBCD4AC1ED7C6923586275E444EED6624C5D"
+      },
+      {
+        "path": "venv/pyvenv.cfg",
+        "bytes": 336,
+        "sha256": "DFFA6525AF778AB1715DF96F496557A9CF710F919F349C2A27E46807E9636DFF"
+      },
+      {
+        "path": "venv_vis/pyvenv.cfg",
+        "bytes": 340,
+        "sha256": "1F83711384780201C2C2B3EBBCC102447952941B7242DB4D936B3A4C84830075"
+      },
+      {
+        "path": ".git/index",
+        "bytes": 2392,
+        "sha256": "706AB9CD8FBAEC4846061E596C344F716778068BEF35B366BC11B1E124D659D0"
+      },
+      {
+        "path": ".git/HEAD",
+        "bytes": 21,
+        "sha256": "28D25BF82AF4C0E2B72F50959B2BEB859E3E60B9630A5E8C603DAD4DDB2B6E80"
+      },
+      {
+        "path": "tests/test_plot_traffic_metrics.py",
+        "bytes": 6085,
+        "sha256": "C023D4DB068BA4D86C257BF02871C80D26DB41FA767A425E1DD930959514F7E0"
+      },
+      {
+        "path": "tests/test_traffic_core.py",
+        "bytes": 7945,
+        "sha256": "507893BB331546DD375306FE9C32FF4A85CE477A2FCA221261203C3BA6D823A5"
+      },
+      {
+        "path": "tests/test_traffic_gpu.py",
+        "bytes": 13292,
+        "sha256": "165630D98733F578DECB68C4540129033CDD6FEC8BEB689E8FC1015C8C54B0A3"
+      },
+      {
+        "path": "graficas/cola_aproximada.png",
+        "bytes": 93301,
+        "sha256": "ACEE08701FFFA9CD55D4A52F255B6FB9D1CEE035ACA041CA5C76DA6936AF860D"
+      },
+      {
+        "path": "graficas/cruces_totales.png",
+        "bytes": 56270,
+        "sha256": "12D2286D59852A89019422D40746BAA9F4621C6BB0A167BAFF42ACFEAECD694A"
+      },
+      {
+        "path": "graficas/entradas_salidas.png",
+        "bytes": 118470,
+        "sha256": "305330524EC8E110F50577290FAC50C211CFA3FCF9487BA8B8AE32A749191FEE"
+      },
+      {
+        "path": "graficas/espera_media.png",
+        "bytes": 69202,
+        "sha256": "B4C4DD5E13DC41D50DE6C2E324112A36D7132D1D3B9EE937F203E7ECC4267503"
+      },
+      {
+        "path": "graficas/longitud_cola.png",
+        "bytes": 98278,
+        "sha256": "DC4A8560CC1FC4914064F561AEC2856CFB1CB71F28DBBA532C9ECD9538E34DAB"
+      },
+      {
+        "path": "graficas/motivos_parada.png",
+        "bytes": 101613,
+        "sha256": "DF4CF4F05216618775D97EDDCB8C0561D64CB8198A75E36A7B83F7FD233F66DB"
+      },
+      {
+        "path": "graficas/parados_y_cola.png",
+        "bytes": 126179,
+        "sha256": "348F543161647473E1BFB0E47728437DBF21D6E0E41B394037970BD85D24CB52"
+      }
+    ],
+    "checks": [
+      "36 existing tests passed after removal: 26 CPU and 10 real CUDA; no skipped tests.",
+      "No active module, test or dependency references examples/ or historico/.",
+      "All 14 deleted paths and both archive directories are absent.",
+      "All 22 protected hashes are unchanged, including code, current results, tests, reference, environment configs and Git index/HEAD.",
+      "All three relative links in the remaining Markdown documents resolve.",
+      "The functional NuGet Python, both environments and reference data remain; no project bytecode caches were recreated."
+    ]
+  },
+  "record_type": "Initial cleanup followed by archive removal; moved destinations no longer exist after the second phase."
+}
